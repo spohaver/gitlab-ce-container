@@ -1,0 +1,94 @@
+##############################################################################
+# GitLab CE Configuration Template
+# This file will be used as a template for GitLab configuration
+##############################################################################
+
+# External URL (must match your domain)
+external_url 'https://#{ENV['GITLAB_DOMAIN']}'
+
+# GitLab SSH settings
+gitlab_rails['gitlab_ssh_host'] = '#{ENV['GITLAB_DOMAIN']}'
+gitlab_rails['gitlab_shell_ssh_port'] = 22
+
+##############################################################################
+# Email/SMTP Settings
+##############################################################################
+gitlab_rails['smtp_enable'] = #{ENV['GITLAB_SMTP_ENABLED']}
+gitlab_rails['smtp_address'] = "#{ENV['GITLAB_SMTP_ADDRESS']}"
+gitlab_rails['smtp_port'] = #{ENV['GITLAB_SMTP_PORT']}
+gitlab_rails['smtp_user_name'] = "#{ENV['GITLAB_SMTP_USER']}"
+gitlab_rails['smtp_password'] = "#{ENV['GITLAB_SMTP_PASSWORD']}"
+gitlab_rails['smtp_domain'] = "#{ENV['GITLAB_SMTP_DOMAIN']}"
+gitlab_rails['smtp_authentication'] = "#{ENV['GITLAB_SMTP_AUTHENTICATION']}"
+gitlab_rails['smtp_enable_starttls_auto'] = #{ENV['GITLAB_SMTP_ENABLE_STARTTLS_AUTO']}
+gitlab_rails['smtp_tls'] = #{ENV['GITLAB_SMTP_TLS']}
+
+# Email from address
+gitlab_rails['gitlab_email_from'] = 'gitlab@#{ENV['GITLAB_DOMAIN']}'
+gitlab_rails['gitlab_email_display_name'] = 'GitLab'
+
+##############################################################################
+# SSL Settings
+##############################################################################
+# Set to true if using self-signed certificates
+# nginx['ssl_client_certificate'] = "/etc/gitlab/ssl/ca.crt"
+
+# Use existing certificates
+nginx['ssl_certificate'] = "/etc/gitlab/ssl/gitlab.crt"
+nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/gitlab.key"
+
+# Redirect HTTP to HTTPS
+nginx['redirect_http_to_https'] = #{ENV['GITLAB_NGINX_REDIRECT'] == 'redirect_http_to_https'}
+nginx['redirect_http_to_https_port'] = 80
+
+##############################################################################
+# Backup Settings
+##############################################################################
+# Backup settings
+gitlab_rails['backup_path'] = "/var/opt/gitlab/backups"
+gitlab_rails['backup_archive_permissions'] = 0644
+gitlab_rails['backup_keep_time'] = #{ENV['GITLAB_BACKUP_KEEP_TIME']}
+
+##############################################################################
+# GitLab Registry Settings (Optional)
+##############################################################################
+# registry['enable'] = true
+# registry_external_url 'https://registry.#{ENV['GITLAB_DOMAIN']}'
+# registry_nginx['ssl_certificate'] = "/etc/gitlab/ssl/registry.crt"
+# registry_nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/registry.key"
+
+##############################################################################
+# GitLab Pages Settings (Optional)
+##############################################################################
+# pages_external_url "https://pages.#{ENV['GITLAB_DOMAIN']}/"
+# gitlab_pages['enable'] = true
+# gitlab_pages['access_control'] = true
+# gitlab_pages['artifacts_server'] = true
+# gitlab_pages['artifacts_server_url'] = "https://#{ENV['GITLAB_DOMAIN']}/api/v4"
+# gitlab_pages['artifacts_server_timeout'] = 10
+
+##############################################################################
+# System Resource Settings
+##############################################################################
+# Unicorn (web workers)
+unicorn['worker_timeout'] = 60
+unicorn['worker_processes'] = 3
+
+# PostgreSQL shared buffers - 25% of available RAM is recommended
+postgresql['shared_buffers'] = "256MB"
+
+# Redis
+redis['tcp_timeout'] = 60
+redis['tcp_keepalive'] = 300
+
+##############################################################################
+# Monitoring Settings (Optional)
+##############################################################################
+# Enable Prometheus metrics
+# prometheus['enable'] = true
+# gitlab_exporter['enable'] = true
+
+##############################################################################
+# GitLab CI/CD Runner Settings (Optional)
+##############################################################################
+# To register runners, use the separate runner registration process

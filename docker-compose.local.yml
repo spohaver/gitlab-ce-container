@@ -1,0 +1,45 @@
+version: '3.6'
+
+services:
+  gitlab:
+    image: 'gitlab/gitlab-ce:latest'
+    container_name: gitlab-local
+    restart: unless-stopped
+    hostname: 'gitlab.local'
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://gitlab.local'
+        gitlab_rails['gitlab_shell_ssh_port'] = 2224
+        # Disable HTTPS for local testing
+        nginx['redirect_http_to_https'] = false
+        nginx['ssl_certificate'] = "/etc/gitlab/ssl/gitlab-local.crt"
+        nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/gitlab-local.key"
+        # Reduce resources for local testing
+        unicorn['worker_processes'] = 2
+        sidekiq['concurrency'] = 10
+        postgresql['shared_buffers'] = "256MB"
+        # Disable email for local testing (optional)
+        # gitlab_rails['smtp_enable'] = false
+    ports:
+      - '8080:80'      # HTTP on alternate port to avoid conflicts
+      - '8443:443'     # HTTPS on alternate port
+      - '2224:22'      # SSH on alternate port
+    volumes:
+      # Store GitLab data
+      - ./gitlab-local/data:/var/opt/gitlab
+      # Store GitLab config files
+      - ./gitlab-local/config:/etc/gitlab
+      # Store logs
+      - ./gitlab-local/logs:/var/log/gitlab
+      # Create a directory for SSL certificates
+      - ./gitlab-local/ssl:/etc/gitlab/ssl:ro
+    shm_size: '256m'
+    networks:
+      - gitlab-local-network
+    # Lower resource limits for local testing
+    mem_limit: 4G
+    cpus: 2
+
+networks:
+  gitlab-local-network:
+    driver: bridge

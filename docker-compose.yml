@@ -1,0 +1,49 @@
+version: '3.6'
+
+services:
+  gitlab:
+    image: 'gitlab/gitlab-ce:latest'
+    container_name: gitlab
+    restart: unless-stopped
+    hostname: 'gitlab.example.com'  # Change this to your domain
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'https://gitlab.example.com'  # Change this to your domain
+        gitlab_rails['gitlab_shell_ssh_port'] = 22
+        # Add additional configurations here from gitlab.rb
+    ports:
+      - '80:80'      # HTTP
+      - '443:443'    # HTTPS
+      - '22:22'      # SSH
+    volumes:
+      # Store GitLab data
+      - gitlab-data:/var/opt/gitlab
+      # Store GitLab config files
+      - gitlab-config:/etc/gitlab
+      # Store logs
+      - gitlab-logs:/var/log/gitlab
+      # Store backups
+      - ./backups:/var/opt/gitlab/backups
+      # Optional: Custom SSL certificates
+      - ./config/ssl:/etc/gitlab/ssl:ro
+    shm_size: '256m'  # Recommended for CI
+    healthcheck:
+      test: ["CMD", "/opt/gitlab/bin/gitlab-healthcheck", "--fail", "--max-time", "10"]
+      interval: 60s
+      timeout: 30s
+      retries: 5
+      start_period: 180s
+    networks:
+      - gitlab-network
+
+volumes:
+  gitlab-data:
+    driver: local
+  gitlab-config:
+    driver: local
+  gitlab-logs:
+    driver: local
+
+networks:
+  gitlab-network:
+    driver: bridge

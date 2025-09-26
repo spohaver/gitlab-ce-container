@@ -1,0 +1,130 @@
+#!/bin/bash
+#
+# GitLab CE Restore Script
+#
+# This script restores a GitLab backup to a Docker-based GitLab CE instance
+#
+
+set -e
+
+# Script configuration
+GITLAB_DIR="/home/sohaver/workplace/gitlab-server"
+BACKUP_DIR="$GITLAB_DIR/backups"
+LOG_FILE="$GITLAB_DIR/logs/restore_$(date +"%Y-%m-%d_%H-%M-%S").log"
+
+# Ensure log directory exists
+mkdir -p "$(dirname $LOG_FILE)"
+
+# Print to console and log file
+log() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
+}
+
+show_usage() {
+  echo "Usage: $0 <backup_file>"
+  echo "Example: $0 1632648838_2021_09_26_14.2.3_gitlab_backup.tar"
+  exit 1
+}
+
+# Check arguments
+if [ "$#" -ne 1 ]; then
+  show_usage
+fi
+
+BACKUP_FILE="$1"
+BACKUP_PATH="$BACKUP_DIR/$BACKUP_FILE"
+
+# Validate backup file
+if [ ! -f "$BACKUP_PATH" ]; then
+  log "Error: Backup file not found: $BACKUP_PATH"
+  exit 1
+fi
+
+log "Starting GitLab restore process using backup: $BACKUP_FILE"
+
+# Make sure we're in the correct directory
+cd "$GITLAB_DIR"
+
+# Check if GitLab is running
+if ! docker ps | grep -q gitlab; then
+  log "Error: GitLab container is not running"
+  exit 1
+fi
+
+# Create a backup of current state before restore (optional)
+log "Creating a backup of current state before restore..."
+bash "$GITLAB_DIR/scripts/backup.sh"
+
+# Stop GitLab processes before restore
+log "Stopping GitLab processes..."
+docker exec gitlab gitlab-ctl stop unicorn
+docker exec gitlab gitlab-ctl stop puma
+docker exec gitlab gitlab-ctl stop sidekiq
+
+# Copy backup file to correct location if needed
+if [[ "$BACKUP_PATH" != "/var/opt/gitlab/backups/"* ]]; then
+  log "Copying backup file to GitLab container..."
+  docker cp "$BACKUP_PATH" gitlab:/var/opt/gitlab/backups/
+fi
+
+# Extract backup timestamp
+TIMESTAMP=$(echo "$BACKUP_FILE" | sed -E 's/^[0-9]+_([0-9_]+)_.*/\1/')
+if [ -z "$TIMESTAMP" ]; then
+  TIMESTAMP=$(echo "$BACKUP_FILE" | sed -E 's/.*_gitlab_backup.tar//')
+fi
+
+# Perform restore
+log "Restoring GitLab from backup..."
+docker exec gitlab gitlab-backup restore BACKUP=$TIMESTAMP force=yes
+if [ $? -ne 0 ]; then
+  log "Error: GitLab restore failed"
+  docker exec gitlab gitlab-ctl restart
+  exit 1
+fi
+
+# Restore configuration files if available
+if [ -d "$BACKUP_DIR/config" ]; then
+  log "Restoring GitLab configuration files..."
+  docker exec gitlab cp -r /var/opt/gitlab/backups/config/* /etc/gitlab/
+fi
+
+# Reconfigure and restart GitLab
+log "Reconfiguring GitLab..."
+docker exec gitlab gitlab-ctl reconfigure
+
+log "Starting GitLab processes..."
+docker exec gitlab gitlab-ctl restart
+
+# Wait for GitLab to be fully operational
+log "Waiting for GitLab to become available..."
+attempts=0
+max_attempts=30
+sleep_time=10
+
+while [ $attempts -lt $max_attempts ]; do
+  attempts=$((attempts + 1))
+  log "Attempt $attempts of $max_attempts..."
+  
+  # Check if GitLab is healthy
+  if docker exec gitlab gitlab-healthcheck --fail --max-time 10; then
+    log "GitLab is up and running"
+    break
+  fi
+  
+  # If we've reached max attempts, report failure
+  if [ $attempts -eq $max_attempts ]; then
+    log "GitLab did not become healthy after restore. Please check logs."
+    exit 1
+  fi
+  
+  log "Still waiting for GitLab to become available, sleeping for ${sleep_time}s..."
+  sleep $sleep_time
+done
+
+log "GitLab restore completed successfully"
+
+# Optional: Send notification
+# mail -s "GitLab Restore Completed" admin@example.com < "$LOG_FILE"
+
+exit 0
