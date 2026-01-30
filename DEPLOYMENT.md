@@ -1,37 +1,120 @@
 # GitLab CE Docker Deployment Guide
 
-This document provides step-by-step instructions for deploying GitLab CE using Docker in various environments.
+This document provides advanced deployment topics and configuration details for GitLab CE Docker deployments.
+
+> 📚 **Quick Start Guides Available:**
+> - New to GitLab? Start with [QUICKSTART-SANDBOX.md](QUICKSTART-SANDBOX.md) for local testing
+> - Ready for production? See [QUICKSTART-PRODUCTION.md](QUICKSTART-PRODUCTION.md)
+> - This guide covers advanced topics and customizations
+
+## Deployment Profiles Overview
+
+This repository provides three pre-configured deployment profiles:
+
+### Profile Selection Guide
+
+| Scenario | Recommended Profile | Configuration File |
+|----------|-------------------|-------------------|
+| Local development/testing | Sandbox | `docker-compose.sandbox.yml` |
+| Team testing environment | Staging | `docker-compose.staging.yml` |
+| Live production server | Production | `docker-compose.production.yml` |
+
+### Using Deployment Profiles
+
+**Interactive Setup (Recommended):**
+```bash
+./setup-wizard.sh
+# Select your deployment type
+# Wizard generates appropriate configuration
+```
+
+**Manual Deployment:**
+```bash
+# Sandbox
+docker-compose -f docker-compose.sandbox.yml up -d
+
+# Staging
+docker-compose -f docker-compose.staging.yml up -d
+
+# Production
+docker-compose -f docker-compose.production.yml up -d
+```
 
 ## Pre-Deployment Planning
 
 ### System Requirements Assessment
 
-1. **Hardware Requirements**:
-   - CPU: 4+ cores (8+ recommended for 100+ users)
-   - RAM: 8GB+ (16GB+ recommended for CI/CD workloads)
-   - Storage: 50GB+ SSD (increases with repository count and CI/CD usage)
+1. **Hardware Requirements by Deployment Type**:
+
+   **Sandbox:**
+   - CPU: 2+ cores
+   - RAM: 4GB+
+   - Storage: 20GB+
+
+   **Staging:**
+   - CPU: 4+ cores
+   - RAM: 8GB+
+   - Storage: 50GB+ SSD
+
+   **Production:**
+   - CPU: 8+ cores (for 100+ users)
+   - RAM: 16GB+ (more for CI/CD workloads)
+   - Storage: 100GB+ SSD (scales with usage)
    - Network: 100Mbps+ connection
 
 2. **Software Requirements**:
    - Docker Engine 20.10+
    - Docker Compose v2+
    - Host OS: Linux (Ubuntu 22.04 LTS recommended)
+   - For production: `ufw`, `fail2ban`
 
-3. **Domain Planning**:
+3. **Domain Planning** (Staging/Production):
    - Dedicated domain or subdomain (e.g., gitlab.example.com)
-   - SSL certificate for the domain
+   - Valid SSL certificate for the domain
+   - DNS A record pointing to server IP
 
 ### Network Planning
 
 1. **Firewall Configuration**:
-   - TCP port 80 (HTTP, redirected to HTTPS)
+   
+   **Sandbox:** No firewall needed (localhost only)
+   
+   **Staging/Production:**
+   - TCP port 80 (HTTP, redirects to HTTPS)
    - TCP port 443 (HTTPS)
-   - TCP port 22 (SSH)
+   - TCP port 2222 (SSH for Git operations)
 
-2. **DNS Configuration**:
-   - Create an A record pointing your domain to the server IP
+2. **DNS Configuration** (Staging/Production):
+   ```bash
+   # Create A record
+   gitlab.yourdomain.com  →  YOUR_SERVER_IP
+   ```
 
-## Deployment Procedure
+## Deployment Procedures
+
+### Method 1: Interactive Setup Wizard (Recommended)
+
+```bash
+./setup-wizard.sh
+```
+
+The wizard guides you through:
+1. Deployment type selection
+2. Domain and port configuration
+3. SSL certificate setup
+4. SMTP/email configuration
+5. Security settings
+6. Configuration validation
+
+### Method 2: Manual Deployment
+
+See profile-specific guides:
+- **Sandbox**: [QUICKSTART-SANDBOX.md](QUICKSTART-SANDBOX.md)
+- **Production**: [QUICKSTART-PRODUCTION.md](QUICKSTART-PRODUCTION.md)
+
+## Deployment Procedure (Legacy/Manual)
+
+> **Note**: For new deployments, use `./setup-wizard.sh` instead of following these manual steps.
 
 ### 1. Server Preparation
 

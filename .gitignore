@@ -1,2 +1,46 @@
-gitlab-local
+# =============================================================================
+# LOCAL RUNTIME DATA - Always excluded
+# =============================================================================
+# Never commit local GitLab instance data - contains secrets, keys, and user data
+gitlab-local/
 gitlab-local/*
+
+# =============================================================================
+# SECURITY-CRITICAL FILES - Protected by default
+# =============================================================================
+# These files contain secrets, credentials, and sensitive data that should
+# NEVER be committed to version control. They are now enabled by default.
+# 
+# For pure sandbox/testing environments, you may create a .gitignore.local
+# file to override these settings, but understand the security implications.
+
+# Environment variables with database passwords, SMTP credentials, API tokens
+.env
+
+# Backup archives may contain all GitLab data including user repositories,
+# database dumps, and secrets - must be stored securely outside of Git
+backups/
+*.tar
+*_gitlab_backup.tar
+
+# Log files may contain sensitive information like user activity, IP addresses,
+# authentication tokens, and system internals
+logs/
+*.log
+
+# Data directories contain GitLab's database, repositories, and uploaded files
+# - never commit actual runtime data
+data/
+
+# SSL/TLS private keys must be kept secret - exposure allows impersonation
+# Only commit .crt (certificate) and .csr (certificate request) files if needed
+config/ssl/*.key
+*.key
+*.pem
+
+# GitLab configuration may contain SMTP passwords, database credentials,
+# OAuth secrets, and encryption keys - use config/gitlab.rb.template instead
+config/gitlab.rb
+
+# Docker override files may contain environment-specific secrets
+docker-compose.override.yml
