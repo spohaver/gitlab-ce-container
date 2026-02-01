@@ -12,7 +12,7 @@ Get GitLab running locally in under 10 minutes for development and testing.
 ## Step 1: Run Setup Wizard
 
 ```bash
-./setup-wizard.sh
+./setup-wizard.py
 ```
 
 Select **1) Sandbox/Development** when prompted. The wizard will:
@@ -20,11 +20,14 @@ Select **1) Sandbox/Development** when prompted. The wizard will:
 - Create necessary directories
 - Set up local configuration
 
+**Or run non-interactively:**
+```bash
+./setup-wizard.py --deployment-type sandbox --non-interactive
+```
+
 ## Step 2: Start GitLab
 
 ```bash
-./start-gitlab.sh
-# Or manually:
 docker-compose -f docker-compose.sandbox.yml up -d
 ```
 
@@ -190,8 +193,8 @@ docker-compose -f docker-compose.sandbox.yml down -v
 rm -rf gitlab-local/
 
 # Start fresh
-./setup-wizard.sh
-./start-gitlab.sh
+./setup-wizard.py
+docker-compose -f docker-compose.sandbox.yml up -d
 ```
 
 ## What's Different in Sandbox Mode?
@@ -246,7 +249,7 @@ When ready to deploy for real use:
 
 2. Run setup wizard for production:
    ```bash
-   ./setup-wizard.sh
+   ./setup-wizard.py
    ```
    Select **3) Production**
 
@@ -262,7 +265,7 @@ When ready to deploy for real use:
 ## Getting Help
 
 - Check logs: `docker-compose -f docker-compose.sandbox.yml logs -f`
-- Validate setup: `./validate-deployment.sh sandbox`
+- Validate setup: `./validate-deployment.py sandbox`
 - GitLab Community Forum: https://forum.gitlab.com/
 - Repository Issues: [Create an issue](../../issues/new)
 

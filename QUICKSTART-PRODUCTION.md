@@ -96,14 +96,21 @@ Place your certificate files:
 
 #### Clone Repository
 ```bash
+# You can install in any directory - /opt is just an example
+# Common choices: /opt, /srv, ~/gitlab-server, /home/gitlab
 cd /opt
 git clone https://github.com/yourusername/gitlab-server.git
 cd gitlab-server
+
+# Or install to your home directory:
+# cd ~
+# git clone https://github.com/yourusername/gitlab-server.git
+# cd gitlab-server
 ```
 
 #### Run Setup Wizard
 ```bash
-./setup-wizard.sh
+./setup-wizard.py
 ```
 
 Select **3) Production** and provide:
@@ -116,6 +123,20 @@ The wizard will:
 - Configure production-hardened settings
 - Create necessary directories
 - Generate secure passwords
+
+**For automated/CI-CD deployments:**
+```bash
+./setup-wizard.py \
+  --deployment-type production \
+  --domain gitlab.example.com \
+  --smtp-address smtp.gmail.com \
+  --smtp-user gitlab@example.com \
+  --smtp-password "${SMTP_PASSWORD}" \
+  --root-password "${ROOT_PASSWORD}" \
+  --non-interactive \
+  --force
+```
+See [AUTOMATION.md](AUTOMATION.md) for full CI/CD examples.
 
 #### Verify .env Configuration
 
@@ -159,11 +180,13 @@ sudo nano /etc/letsencrypt/renewal-hooks/deploy/gitlab-cert-renewal.sh
 Add:
 ```bash
 #!/bin/bash
+# Replace /path/to/gitlab-server with your actual installation path
+GITLAB_PATH="/path/to/gitlab-server"
 cp /etc/letsencrypt/live/gitlab.yourdomain.com/fullchain.pem \
-  /opt/gitlab-server/config/ssl/gitlab.yourdomain.com.crt
+  "$GITLAB_PATH"/config/ssl/gitlab.yourdomain.com.crt
 cp /etc/letsencrypt/live/gitlab.yourdomain.com/privkey.pem \
-  /opt/gitlab-server/config/ssl/gitlab.yourdomain.com.key
-docker-compose -f /opt/gitlab-server/docker-compose.production.yml restart
+  "$GITLAB_PATH"/config/ssl/gitlab.yourdomain.com.key
+cd "$GITLAB_PATH" && docker-compose -f docker-compose.production.yml restart
 ```
 
 ```bash
@@ -173,7 +196,7 @@ sudo chmod +x /etc/letsencrypt/renewal-hooks/deploy/gitlab-cert-renewal.sh
 ### Step 5: Validate Configuration
 
 ```bash
-./validate-deployment.sh production
+./validate-deployment.py production
 ```
 
 Review all checks. Fix any errors before proceeding.
@@ -277,7 +300,8 @@ crontab -e
 
 Add (daily backup at 2 AM):
 ```cron
-0 2 * * * /opt/gitlab-server/scripts/backup.sh >> /var/log/gitlab-backup.log 2>&1
+# Replace /path/to/gitlab-server with your actual installation path
+0 2 * * * /path/to/gitlab-server/scripts/backup.sh >> /var/log/gitlab-backup.log 2>&1
 ```
 
 #### Test Backup Restoration
@@ -388,11 +412,11 @@ docker-compose -f docker-compose.production.yml restart
 
 ```bash
 # 1. Backup current installation
-./scripts/backup.sh
+GITLAB_CONTAINER_NAME=gitlab-production ./scripts/backup.sh
 
 # 2. Update image version in docker-compose.production.yml
 nano docker-compose.production.yml
-# Change: gitlab/gitlab-ce:18.4.0 to gitlab/gitlab-ce:18.5.0
+# Change: gitlab/gitlab-ce:18.8.2-ce.0 to the target version (e.g., 18.9.0-ce.0)
 
 # 3. Pull new image
 docker-compose -f docker-compose.production.yml pull
@@ -523,8 +547,8 @@ df -h
 5. **Follow restoration procedure**:
    ```bash
    # Copy backup to new server
-   # Run setup
-   ./setup-wizard.sh  # Use same configuration
+   # Run setup with same configuration
+   ./setup-wizard.py  # Use same settings
    
    # Start GitLab
    docker-compose -f docker-compose.production.yml up -d

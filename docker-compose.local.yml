@@ -12,11 +12,12 @@ services:
         gitlab_rails['gitlab_shell_ssh_port'] = 2224
         # Disable HTTPS for local testing
         nginx['redirect_http_to_https'] = false
-        nginx['ssl_certificate'] = "/etc/gitlab/ssl/gitlab-local.crt"
-        nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/gitlab-local.key"
+        # Uncomment below if you generate self-signed certs in gitlab-local/ssl/
+        # nginx['ssl_certificate'] = "/etc/gitlab/ssl/gitlab-local.crt"
+        # nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/gitlab-local.key"
         # Reduce resources for local testing
-        unicorn['worker_processes'] = 2
-        sidekiq['concurrency'] = 10
+        puma['worker_processes'] = 2
+        sidekiq['max_concurrency'] = 10
         postgresql['shared_buffers'] = "256MB"
         # Disable email for local testing (optional)
         # gitlab_rails['smtp_enable'] = false
@@ -33,12 +34,26 @@ services:
       - ./gitlab-local/logs:/var/log/gitlab
       # Create a directory for SSL certificates
       - ./gitlab-local/ssl:/etc/gitlab/ssl:ro
+      # Store backups
+      - ./backups:/var/opt/gitlab/backups
     shm_size: '256m'
+    # Lower resource limits for local testing
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
+          cpus: '1.0'
+    healthcheck:
+      test: ["CMD", "/opt/gitlab/bin/gitlab-healthcheck", "--fail", "--max-time", "10"]
+      interval: 60s
+      timeout: 30s
+      retries: 5
+      start_period: 180s
     networks:
       - gitlab-local-network
-    # Lower resource limits for local testing
-    mem_limit: 4G
-    cpus: 2
 
 networks:
   gitlab-local-network:

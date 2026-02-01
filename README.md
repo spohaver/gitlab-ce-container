@@ -8,6 +8,8 @@ This repository contains configuration and setup files for deploying GitLab Comm
 > - **Production**: Fully hardened deployment for live use
 >
 > ⚠️ **Security Notice**: This repository has security controls enabled by default. The `.gitignore` file protects sensitive data like `.env` files, SSL keys, and backups from being committed.
+>
+> 🚀 **Deployment Flexible**: Works from any directory, supports custom container names, and can run multiple instances simultaneously. See [DEPLOYMENT-FLEXIBILITY.md](DEPLOYMENT-FLEXIBILITY.md) for details.
 
 ## Features
 
@@ -20,6 +22,7 @@ This repository contains configuration and setup files for deploying GitLab Comm
 - **HTTPS/SSL**: Full SSL/TLS support with modern protocols
 - **Update Automation**: Safe update procedures with rollback support
 - **Comprehensive Documentation**: Quickstart guides for each deployment type
+- **Security Scanning**: Automated SAST and secret detection tools included
 
 ## Quick Start
 
@@ -27,21 +30,35 @@ This repository contains configuration and setup files for deploying GitLab Comm
 
 **🏖️ Sandbox/Development** (Local testing in 5 minutes)
 ```bash
-./setup-wizard.sh
+# Interactive mode
+./setup-wizard.py
 # Select option 1: Sandbox
-./start-gitlab.sh
+
+# Or non-interactive
+./setup-wizard.py --deployment-type sandbox --non-interactive
+
+# Start GitLab
+docker-compose -f docker-compose.sandbox.yml up -d
 # Access at http://localhost:8080
 ```
 📖 **Full Guide**: [QUICKSTART-SANDBOX.md](QUICKSTART-SANDBOX.md)
 
 **🚀 Production** (Complete deployment guide)
 ```bash
-./setup-wizard.sh
+# Interactive mode
+./setup-wizard.py
 # Select option 3: Production
-# Follow all security prompts
+
+# Or automated (CI/CD)
+./setup-wizard.py --deployment-type production --domain gitlab.example.com --non-interactive
+
+# Validate before deployment
+./validate-deployment.py --non-interactive
+
+# Deploy
 docker-compose -f docker-compose.production.yml up -d
 ```
-📖 **Full Guide**: [QUICKSTART-PRODUCTION.md](QUICKSTART-PRODUCTION.md)
+📖 **Full Guides**: [QUICKSTART-PRODUCTION.md](QUICKSTART-PRODUCTION.md) | [AUTOMATION.md](AUTOMATION.md)
 
 ### Prerequisites
 
@@ -88,7 +105,7 @@ This template provides three deployment configurations:
 The setup wizard guides you through configuration:
 
 ```bash
-./setup-wizard.sh
+./setup-wizard.py
 ```
 
 The wizard will:
@@ -98,9 +115,36 @@ The wizard will:
 - Run validation checks
 - Provide next steps
 
-### Method 2: Manual Configuration
+### Method 2: Non-Interactive (CI/CD & Automation)
 
-For advanced users or automation:
+For automated deployments, use the Python scripts with command-line arguments:
+
+```bash
+# Configure for production non-interactively
+./setup-wizard.py \
+  --deployment-type production \
+  --domain gitlab.example.com \
+  --smtp-address smtp.gmail.com \
+  --smtp-user gitlab@example.com \
+  --smtp-password "${SMTP_PASSWORD}" \
+  --root-password "${ROOT_PASSWORD}" \
+  --non-interactive \
+  --force
+
+# Validate configuration
+./validate-deployment.py --non-interactive
+
+# Deploy if validation passes
+if [ $? -eq 0 ]; then
+  docker-compose -f docker-compose.production.yml up -d
+fi
+```
+
+📖 **Full Automation Guide**: [AUTOMATION.md](AUTOMATION.md) - CI/CD examples, GitHub Actions, GitLab CI, Jenkins, Ansible, Terraform
+
+### Method 3: Manual Configuration
+
+For advanced users or custom scenarios:
 
 1. **Copy environment template:**
    ```bash
@@ -116,7 +160,7 @@ For advanced users or automation:
 
 3. **Validate configuration:**
    ```bash
-   ./validate-deployment.sh production
+   ./validate-deployment.py production
    ```
 
 4. **Deploy:**
@@ -153,8 +197,8 @@ gitlab-server/
 ├── docker-compose.production.yml   # Production profile
 ├── docker-compose.local.yml        # Local testing (legacy)
 │
-├── setup-wizard.sh                 # Interactive setup wizard
-├── validate-deployment.sh          # Pre-deployment validation
+├── setup-wizard.py                 # Interactive & automated setup wizard
+├── validate-deployment.py          # Pre-deployment validation
 │
 ├── .env.example                    # Environment variable template
 ├── .env                            # Your configuration (generated, not in Git)
@@ -234,22 +278,19 @@ docker-compose -f docker-compose.production.yml restart
 ### Updating GitLab
 
 ```bash
-# 1. Create backup first
-./scripts/backup.sh
-
-# 2. Update image version in docker-compose file
+# 1. Update image version in docker-compose file
 nano docker-compose.production.yml
-# Change: gitlab/gitlab-ce:18.4.0 to gitlab/gitlab-ce:18.5.0
+# Change: gitlab/gitlab-ce:18.8.2-ce.0 to the target version (e.g., 18.9.0-ce.0)
 
-# 3. Run update
-./scripts/update.sh
+# 2. Run update (creates backup automatically, pulls new image, restarts, health checks)
+GITLAB_CONTAINER_NAME=gitlab-production ./scripts/update.sh docker-compose.production.yml
 ```
 
 ### Validating Configuration
 
 ```bash
 # Check for issues before deployment
-./validate-deployment.sh production
+./validate-deployment.py production
 ```
 
 ## Troubleshooting
@@ -308,7 +349,7 @@ docker-compose -f docker-compose.production.yml logs gitlab
 # - Insufficient memory (need 4GB+ available)
 # - Disk full (check: df -h)
 # - Port conflicts (check: netstat -tuln)
-# - Invalid configuration (run: ./validate-deployment.sh)
+# - Invalid configuration (run: ./validate-deployment.py)
 ```
 
 ### Forgot Root Password
@@ -323,7 +364,7 @@ docker exec -it gitlab-production gitlab-rake "gitlab:password:reset[root]"
 
 - Check deployment-specific guides: [QUICKSTART-SANDBOX.md](QUICKSTART-SANDBOX.md) or [QUICKSTART-PRODUCTION.md](QUICKSTART-PRODUCTION.md)
 - Review logs: `docker-compose -f <profile> logs -f`
-- Run validation: `./validate-deployment.sh`
+- Run validation: `./validate-deployment.py`
 - See [DEPLOYMENT.md](DEPLOYMENT.md) for advanced topics
 
 ## Security Best Practices
@@ -373,24 +414,33 @@ For advanced customization, see [DEPLOYMENT.md](DEPLOYMENT.md) for topics includ
 ### Quick Start Guides
 - **[QUICKSTART-SANDBOX.md](QUICKSTART-SANDBOX.md)** - Get started with local testing in 5 minutes
 - **[QUICKSTART-PRODUCTION.md](QUICKSTART-PRODUCTION.md)** - Complete production deployment guide
+- **[AUTOMATION.md](AUTOMATION.md)** - CI/CD integration, non-interactive mode, automation examples
 
 ### Comprehensive Guides
 - **[DEPLOYMENT.md](DEPLOYMENT.md)** - Advanced deployment topics and configurations
+- **[DEPLOYMENT-FLEXIBILITY.md](DEPLOYMENT-FLEXIBILITY.md)** - Installation location and container name flexibility
 - **[SECURITY.md](SECURITY.md)** - Security best practices and hardening checklist
+- **[SECURITY-AUDIT.md](SECURITY-AUDIT.md)** - Security audit report and SAST findings
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture and design decisions
-- **[LOCAL_TESTING.md](LOCAL_TESTING.md)** - Local testing procedures
 
 ### Scripts
+
+**Setup & Validation:**
+- **[setup-wizard.py](setup-wizard.py)** - Interactive configuration wizard (interactive & automated)
+- **[validate-deployment.py](validate-deployment.py)** - Pre-deployment validation checks- **[security-scan.sh](security-scan.sh)** - SAST and vulnerability scanner
+**Maintenance:**
 - **[scripts/backup.sh](scripts/backup.sh)** - Automated backup with offsite sync options
 - **[scripts/restore.sh](scripts/restore.sh)** - Restore from backup
 - **[scripts/update.sh](scripts/update.sh)** - Safe update procedure
+
+💡 **Tip**: Python scripts support both interactive and non-interactive modes. See [AUTOMATION.md](AUTOMATION.md) for details.
 
 ## Support and Contributing
 
 ### Getting Help
 
 1. **Check the documentation** - Most questions are answered in the guides above
-2. **Run validation** - `./validate-deployment.sh` catches common issues
+2. **Run validation** - `./validate-deployment.py` catches common issues
 3. **Check logs** - `docker-compose -f <profile> logs -f`
 4. **Search issues** - Someone may have encountered the same problem
 5. **Ask the community** - [GitLab Community Forum](https://forum.gitlab.com/)
@@ -408,7 +458,7 @@ Contributions are welcome! Please:
 
 When reporting issues, please include:
 - Deployment type (sandbox/staging/production)
-- Output from `./validate-deployment.sh`
+- Output from `./validate-deployment.py`
 - Relevant log excerpts
 - Steps to reproduce
 
@@ -432,5 +482,5 @@ This template was created to simplify GitLab CE deployment while maintaining sec
 ---
 
 **Ready to get started?**
-- **Quick testing**: Run `./setup-wizard.sh` and select Sandbox
+- **Quick testing**: Run `./setup-wizard.py` and select Sandbox
 - **Production deployment**: Read [QUICKSTART-PRODUCTION.md](QUICKSTART-PRODUCTION.md) first
