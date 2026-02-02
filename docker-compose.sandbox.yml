@@ -1,0 +1,115 @@
+# ============================================================================
+# GitLab CE - SANDBOX/DEVELOPMENT Profile
+# ============================================================================
+# This configuration is optimized for local development and testing.
+# 
+# Features:
+# - Uses alternate ports to avoid conflicts with host services
+# - Lower resource requirements (4GB RAM, 2 CPUs)
+# - Self-signed SSL certificates acceptable
+# - Uses :latest tag for easy updates (not recommended for production)
+# - Simplified authentication and email configuration
+# - Local volume mounts for easy access to data
+#
+# Usage:
+#   docker-compose -f docker-compose.sandbox.yml up -d
+#
+# SECURITY WARNING: This configuration is NOT suitable for production use.
+# See docker-compose.production.yml for production-ready configuration.
+# ============================================================================
+
+version: '3.6'
+
+services:
+  gitlab:
+    image: 'gitlab/gitlab-ce:latest'
+    container_name: gitlab-sandbox
+    restart: unless-stopped
+    hostname: 'gitlab.sandbox.local'
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        # Basic URL configuration
+        external_url 'http://gitlab.sandbox.local'
+        gitlab_rails['gitlab_shell_ssh_port'] = 2224
+        
+        # Disable HTTPS redirect for easy local testing
+        nginx['redirect_http_to_https'] = false
+        
+        # Optional: Enable HTTPS with self-signed cert
+        # nginx['ssl_certificate'] = "/etc/gitlab/ssl/gitlab-sandbox.crt"
+        # nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/gitlab-sandbox.key"
+        
+        # Reduced resources for development environments
+        puma['worker_processes'] = 2
+        sidekiq['max_concurrency'] = 10
+        postgresql['shared_buffers'] = "256MB"
+        postgresql['max_worker_processes'] = 4
+        
+        # Disable or simplify email for testing
+        gitlab_rails['smtp_enable'] = false
+        gitlab_rails['gitlab_email_enabled'] = false
+        
+        # Faster CI/CD startup (but less stable)
+        gitlab_rails['gitlab_default_projects_features_builds'] = true
+        
+        # Enable signup for easy testing (disable in production!)
+        gitlab_rails['gitlab_signup_enabled'] = true
+        
+        # Disable rate limiting for easier testing
+        gitlab_rails['rack_attack_git_basic_auth'] = {
+          'enabled' => false
+        }
+        
+        # More verbose logging for debugging
+        gitlab_rails['log_level'] = 'debug'
+        
+        # Shorter session timeout for testing
+        gitlab_rails['session_expire_delay'] = 10080 # 1 week
+        
+        # Monitoring endpoints available on localhost
+        prometheus['enable'] = true
+        prometheus['listen_address'] = 'localhost:9090'
+        
+    ports:
+      - '8080:80'      # HTTP on alternate port
+      - '8443:443'     # HTTPS on alternate port
+      - '2224:22'      # SSH on alternate port
+      
+    volumes:
+      # Use local directory for easy access and inspection
+      - ./gitlab-local/data:/var/opt/gitlab
+      - ./gitlab-local/config:/etc/gitlab
+      - ./gitlab-local/logs:/var/log/gitlab
+      - ./gitlab-local/ssl:/etc/gitlab/ssl:ro
+      - ./backups:/var/opt/gitlab/backups
+      
+    shm_size: '256m'
+    
+    # Resource limits - adjust based on your development machine
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
+          cpus: '1.0'
+    
+    healthcheck:
+      test: ["CMD", "/opt/gitlab/bin/gitlab-healthcheck", "--fail", "--max-time", "10"]
+      interval: 60s
+      timeout: 30s
+      retries: 5
+      start_period: 180s
+      
+    networks:
+      - gitlab-network
+
+networks:
+  gitlab-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# Note: No named volumes in sandbox mode - using local directories for transparency

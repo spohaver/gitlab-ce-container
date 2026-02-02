@@ -1,0 +1,152 @@
+# ============================================================================
+# GitLab CE - STAGING Profile
+# ============================================================================
+# This configuration is optimized for staging/pre-production environments.
+# 
+# Features:
+# - Pinned version for predictable deployments
+# - Production-like security but with more flexible settings
+# - Valid SSL certificates required
+# - Similar to production but allows for testing changes
+# - Named volumes for data persistence
+# - Moderate resource allocation
+#
+# Usage:
+#   docker-compose -f docker-compose.staging.yml up -d
+#
+# This profile should mirror production as closely as possible while allowing
+# for testing and validation before promoting changes to production.
+# ============================================================================
+
+version: '3.6'
+
+services:
+  gitlab:
+    # IMPORTANT: Pin to specific version matching production
+    # Update this when testing upgrades
+    image: 'gitlab/gitlab-ce:18.8.2-ce.0'
+    container_name: gitlab-staging
+    restart: unless-stopped
+    hostname: '${GITLAB_DOMAIN:-gitlab.staging.example.com}'
+    
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        # External URL - use environment variable
+        external_url 'https://${GITLAB_DOMAIN:-gitlab.staging.example.com}'
+        gitlab_rails['gitlab_shell_ssh_port'] = ${GITLAB_SSH_PORT:-2222}
+        
+        # SSL/TLS Configuration
+        nginx['redirect_http_to_https'] = true
+        nginx['ssl_certificate'] = "/etc/gitlab/ssl/${GITLAB_DOMAIN:-gitlab.staging.example.com}.crt"
+        nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/${GITLAB_DOMAIN:-gitlab.staging.example.com}.key"
+        
+        # Modern TLS only
+        nginx['ssl_protocols'] = "TLSv1.2 TLSv1.3"
+        nginx['ssl_prefer_server_ciphers'] = "on"
+        nginx['ssl_ciphers'] = "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384"
+        
+        # HSTS
+        nginx['hsts_max_age'] = 31536000
+        nginx['hsts_include_subdomains'] = false
+        
+        # Email configuration
+        gitlab_rails['smtp_enable'] = ${GITLAB_SMTP_ENABLE:-true}
+        gitlab_rails['smtp_address'] = "${GITLAB_SMTP_ADDRESS}"
+        gitlab_rails['smtp_port'] = ${GITLAB_SMTP_PORT:-587}
+        gitlab_rails['smtp_user_name'] = "${GITLAB_SMTP_USER}"
+        gitlab_rails['smtp_password'] = "${GITLAB_SMTP_PASSWORD}"
+        gitlab_rails['smtp_domain'] = "${GITLAB_SMTP_DOMAIN}"
+        gitlab_rails['smtp_authentication'] = "login"
+        gitlab_rails['smtp_enable_starttls_auto'] = true
+        gitlab_rails['smtp_tls'] = false
+        gitlab_rails['smtp_openssl_verify_mode'] = 'peer'
+        
+        gitlab_rails['gitlab_email_from'] = "${GITLAB_EMAIL_FROM}"
+        gitlab_rails['gitlab_email_reply_to'] = "${GITLAB_EMAIL_REPLY_TO}"
+        
+        # Moderate resource allocation
+        puma['worker_processes'] = 3
+        sidekiq['max_concurrency'] = 20
+        postgresql['shared_buffers'] = "512MB"
+        postgresql['max_worker_processes'] = 8
+        
+        # Signup disabled by default (can be enabled for testing)
+        gitlab_rails['gitlab_signup_enabled'] = false
+        
+        # Rate limiting - production-like but slightly more permissive
+        gitlab_rails['rack_attack_git_basic_auth'] = {
+          'enabled' => true,
+          'ip_whitelist' => ["127.0.0.1"],
+          'maxretry' => 15,
+          'findtime' => 60,
+          'bantime' => 1800
+        }
+        
+        # Session security
+        gitlab_rails['session_expire_delay'] = 10080 # 1 week (more permissive than production)
+        
+        # Backup configuration
+        gitlab_rails['backup_keep_time'] = 604800 # 7 days
+        gitlab_rails['backup_archive_permissions'] = 0640
+        
+        # Monitoring
+        prometheus['enable'] = true
+        prometheus['listen_address'] = 'localhost:9090'
+        node_exporter['enable'] = true
+        redis_exporter['enable'] = true
+        postgres_exporter['enable'] = true
+        gitlab_exporter['enable'] = true
+        gitlab_exporter['listen_address'] = 'localhost'
+        gitlab_exporter['listen_port'] = 9168
+        
+    ports:
+      - '80:80'       # HTTP (will redirect to HTTPS)
+      - '443:443'     # HTTPS
+      - '${GITLAB_SSH_PORT:-2222}:22'  # SSH on non-standard port
+      
+    volumes:
+      # Use named volumes for data persistence
+      - gitlab-staging-data:/var/opt/gitlab
+      - gitlab-staging-config:/etc/gitlab
+      - gitlab-staging-logs:/var/log/gitlab
+      # Mount SSL certs and backups from host
+      - ./config/ssl:/etc/gitlab/ssl:ro
+      - ./backups:/var/opt/gitlab/backups
+      
+    shm_size: '512m'
+    
+    # Moderate resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '4.0'
+        reservations:
+          memory: 4G
+          cpus: '2.0'
+    
+    healthcheck:
+      test: ["CMD", "/opt/gitlab/bin/gitlab-healthcheck", "--fail", "--max-time", "10"]
+      interval: 60s
+      timeout: 30s
+      retries: 5
+      start_period: 300s
+      
+    networks:
+      - gitlab-network
+
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  gitlab-staging-data:
+    driver: local
+  gitlab-staging-config:
+    driver: local
+  gitlab-staging-logs:
+    driver: local
+
+networks:
+  gitlab-network:
+    driver: bridge

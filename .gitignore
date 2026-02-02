@@ -1,2 +1,216 @@
-gitlab-local
+# =============================================================================
+# LOCAL RUNTIME DATA - Always excluded
+# =============================================================================
+# Never commit local GitLab instance data - contains secrets, keys, and user data
+gitlab-local/
 gitlab-local/*
+
+# =============================================================================
+# SECURITY-CRITICAL FILES - Protected by default
+# =============================================================================
+# These files contain secrets, credentials, and sensitive data that should
+# NEVER be committed to version control. They are now enabled by default.
+# 
+# For pure sandbox/testing environments, you may create a .gitignore.local
+# file to override these settings, but understand the security implications.
+
+# Environment variables with database passwords, SMTP credentials, API tokens
+.env
+
+# Backup archives may contain all GitLab data including user repositories,
+# database dumps, and secrets - must be stored securely outside of Git
+backups/
+*.tar
+*_gitlab_backup.tar
+
+# Log files may contain sensitive information like user activity, IP addresses,
+# authentication tokens, and system internals
+logs/
+*.log
+
+# Data directories contain GitLab's database, repositories, and uploaded files
+# - never commit actual runtime data
+data/
+
+# SSL/TLS private keys must be kept secret - exposure allows impersonation
+# Only commit .crt (certificate) and .csr (certificate request) files if needed
+config/ssl/*.key
+*.key
+*.pem
+
+# GitLab configuration may contain SMTP passwords, database credentials,
+# OAuth secrets, and encryption keys - use config/gitlab.rb.template instead
+config/gitlab.rb
+
+# Docker override files may contain environment-specific secrets
+docker-compose.override.yml
+
+# =============================================================================
+# ADDITIONAL SECURITY PATTERNS
+# =============================================================================
+
+# Secrets and credentials - various naming patterns
+*secret*
+*Secret*
+*SECRET*
+*password*
+*Password*
+*PASSWORD*
+*credential*
+*Credential*
+*token*
+*Token*
+*TOKEN*
+*.token
+.secrets
+secrets.yml
+secrets.yaml
+secrets.json
+credentials.yml
+credentials.yaml
+credentials.json
+
+# SSH and GPG keys
+id_rsa
+id_rsa.pub
+id_dsa
+id_dsa.pub
+id_ecdsa
+id_ecdsa.pub
+id_ed25519
+id_ed25519.pub
+*.ppk
+*.gpg
+.ssh/
+ssh_host_*_key
+ssh_host_*_key.pub
+
+# AWS and cloud provider credentials
+.aws/
+.aws/*
+credentials
+*aws-credentials*
+*gcp-credentials*
+*azure-credentials*
+.gcloud/
+.azure/
+
+# Docker and container secrets
+.docker/config.json
+docker-compose.*.local.yml
+
+# Database dumps and exports
+*.sql
+*.dump
+*.db
+*.sqlite
+*.sqlite3
+
+# Terraform state files (may contain sensitive values)
+*.tfstate
+*.tfstate.*
+.terraform/
+terraform.tfvars
+
+# Kubernetes secrets
+*-secret.yaml
+*-secret.yml
+kubeconfig
+.kube/
+
+# Certificate files
+*.crt
+*.cer
+*.der
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.truststore
+
+# API keys and tokens
+.apikey
+.api-key
+api-keys.txt
+*-api-key*
+
+# Environment-specific files that might contain secrets
+.env.*
+.env.local
+.env.production
+.env.staging
+.env.development
+*.env
+
+# Backup files that might expose sensitive data
+*.bak
+*.backup
+*.swp
+*.swo
+*~
+
+# IDE and editor files (may cache credentials)
+.vscode/settings.json
+.idea/
+*.iml
+.project
+.classpath
+.settings/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Python cache and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# Node modules (if any JavaScript tooling is added)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Security scan reports (may contain vulnerability details)
+security-reports/
+*.sarif
+*.sbom
+
+# Archive files (may contain backups)
+*.zip
+*.gz
+*.bz2
+*.xz
+*.7z
+*.rar
+
+# =============================================================================
+# EXCEPTIONS - Files that SHOULD be committed
+# =============================================================================
+
+# Template files are safe to commit
+!config/gitlab.rb.template
+!.env.example
+
+# Certificate files that are public (not private keys)
+!config/ssl/*.crt
+!config/ssl/*.csr
+
+# Documentation is always safe
+!*.md
+!*.txt
+!README*
+!LICENSE*

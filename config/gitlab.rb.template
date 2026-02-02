@@ -46,7 +46,7 @@ nginx['redirect_http_to_https_port'] = 80
 ##############################################################################
 # Backup settings
 gitlab_rails['backup_path'] = "/var/opt/gitlab/backups"
-gitlab_rails['backup_archive_permissions'] = 0644
+gitlab_rails['backup_archive_permissions'] = 0640
 gitlab_rails['backup_keep_time'] = #{ENV['GITLAB_BACKUP_KEEP_TIME']}
 
 ##############################################################################
@@ -70,9 +70,9 @@ gitlab_rails['backup_keep_time'] = #{ENV['GITLAB_BACKUP_KEEP_TIME']}
 ##############################################################################
 # System Resource Settings
 ##############################################################################
-# Unicorn (web workers)
-unicorn['worker_timeout'] = 60
-unicorn['worker_processes'] = 3
+# Puma (web workers)
+puma['worker_timeout'] = 60
+puma['worker_processes'] = 3
 
 # PostgreSQL shared buffers - 25% of available RAM is recommended
 postgresql['shared_buffers'] = "256MB"
@@ -82,11 +82,43 @@ redis['tcp_timeout'] = 60
 redis['tcp_keepalive'] = 300
 
 ##############################################################################
-# Monitoring Settings (Optional)
+# Monitoring Settings (Recommended for Production)
 ##############################################################################
-# Enable Prometheus metrics
-# prometheus['enable'] = true
-# gitlab_exporter['enable'] = true
+# IMPORTANT: Enable these for production monitoring and alerting
+# Enable Prometheus metrics endpoint (recommended for production)
+prometheus['enable'] = true
+prometheus['listen_address'] = 'localhost:9090'
+
+# Enable GitLab exporter for application metrics
+gitlab_exporter['enable'] = true
+gitlab_exporter['listen_address'] = 'localhost'
+gitlab_exporter['listen_port'] = '9168'
+
+# Enable node_exporter for system metrics
+node_exporter['enable'] = true
+node_exporter['listen_address'] = 'localhost:9100'
+
+# Enable Redis exporter
+redis_exporter['enable'] = true
+redis_exporter['listen_address'] = 'localhost:9121'
+
+# Enable PostgreSQL exporter
+postgres_exporter['enable'] = true
+postgres_exporter['listen_address'] = 'localhost:9187'
+
+# Prometheus monitoring settings
+prometheus['scrape_interval'] = 15
+prometheus['scrape_timeout'] = 15
+
+# Configure alertmanager (optional - for notifications)
+# alertmanager['enable'] = true
+# alertmanager['home'] = '/var/opt/gitlab/alertmanager'
+# alertmanager['listen_address'] = 'localhost:9093'
+
+# Example: Configure Grafana (optional - for dashboards)
+# grafana['enable'] = true
+# grafana['admin_password'] = 'CHANGE_THIS_PASSWORD'
+# grafana['disable_login_form'] = false
 
 ##############################################################################
 # GitLab CI/CD Runner Settings (Optional)

@@ -1,294 +1,290 @@
-# GitLab CE Docker Deployment Guide
+# GitLab CE Advanced Deployment Guide
 
-This document provides step-by-step instructions for deploying GitLab CE using Docker in various environments.
+This document covers advanced deployment topics, custom configurations, and enterprise features.
 
-## Pre-Deployment Planning
+> 📚 **Start with the basics first:**
+> - New users: [QUICKSTART-SANDBOX.md](QUICKSTART-SANDBOX.md) - Get started in 5 minutes
+> - Production: [QUICKSTART-PRODUCTION.md](QUICKSTART-PRODUCTION.md) - Complete production guide
+> - Automation: [AUTOMATION.md](AUTOMATION.md) - CI/CD integration and scripting
+> 
+> This guide is for advanced customizations beyond standard deployment.
 
-### System Requirements Assessment
+## Advanced Topics
 
-1. **Hardware Requirements**:
-   - CPU: 4+ cores (8+ recommended for 100+ users)
-   - RAM: 8GB+ (16GB+ recommended for CI/CD workloads)
-   - Storage: 50GB+ SSD (increases with repository count and CI/CD usage)
-   - Network: 100Mbps+ connection
+### Custom GitLab Configuration
 
-2. **Software Requirements**:
-   - Docker Engine 20.10+
-   - Docker Compose v2+
-   - Host OS: Linux (Ubuntu 22.04 LTS recommended)
-
-3. **Domain Planning**:
-   - Dedicated domain or subdomain (e.g., gitlab.example.com)
-   - SSL certificate for the domain
-
-### Network Planning
-
-1. **Firewall Configuration**:
-   - TCP port 80 (HTTP, redirected to HTTPS)
-   - TCP port 443 (HTTPS)
-   - TCP port 22 (SSH)
-
-2. **DNS Configuration**:
-   - Create an A record pointing your domain to the server IP
-
-## Deployment Procedure
-
-### 1. Server Preparation
+For advanced customization beyond environment variables, create a custom `gitlab.rb`:
 
 ```bash
-# Update system packages
-sudo apt update && sudo apt upgrade -y
+# Copy template
+cp config/gitlab.rb.template config/gitlab.rb
 
-# Install required dependencies
-sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
-
-# Install Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-
-# Install Docker Compose
-sudo curl -L "https://github.com/docker/compose/releases/download/v2.17.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
-
-# Add your user to the docker group
-sudo usermod -aG docker $USER
-# Log out and log back in for this to take effect
+# Edit configuration
+nano config/gitlab.rb
 ```
 
-### 2. GitLab Server Setup
+Common customizations:
+- LDAP/Active Directory integration
+- OAuth provider configuration
+- Object storage (S3) integration
+- Custom email templates
+- Webhook rate limiting
+- Git LFS settings
+
+Mount the custom configuration:
+
+```yaml
+# docker-compose.override.yml
+services:
+  gitlab:
+    volumes:
+      - ./config/gitlab.rb:/etc/gitlab/gitlab.rb:ro
+```
+
+### LDAP/Active Directory Integration
+
+Add to `config/gitlab.rb`:
+
+```ruby
+gitlab_rails['ldap_enabled'] = true
+gitlab_rails['ldap_servers'] = YAML.load <<-EOS
+  main:
+    label: 'LDAP'
+    host: 'ldap.example.com'
+    port: 389
+    uid: 'sAMAccountName'
+    bind_dn: 'CN=GitLab,OU=Service Accounts,DC=example,DC=com'
+    password: 'your_password'
+    encryption: 'start_tls'
+    base: 'DC=example,DC=com'
+    user_filter: '(memberOf=CN=GitLab Users,OU=Groups,DC=example,DC=com)'
+EOS
+```
+
+### OAuth Provider Integration
+
+#### GitHub OAuth
+
+Add to `config/gitlab.rb`:
+
+```ruby
+gitlab_rails['omniauth_enabled'] = true
+gitlab_rails['omniauth_allow_single_sign_on'] = ['github']
+gitlab_rails['omniauth_block_auto_created_users'] = false
+gitlab_rails['omniauth_providers'] = [
+  {
+    "name" => "github",
+    "app_id" => "YOUR_APP_ID",
+    "app_secret" => "YOUR_APP_SECRET",
+    "args" => { "scope" => "user:email" }
+  }
+]
+```
+
+#### Google OAuth
+
+```ruby
+gitlab_rails['omniauth_providers'] = [
+  {
+    "name" => "google_oauth2",
+    "app_id" => "YOUR_APP_ID",
+    "app_secret" => "YOUR_APP_SECRET",
+    "args" => { 
+      "access_type" => "offline", 
+      "approval_prompt" => "" 
+    }
+  }
+]
+```
+
+### Container Registry
+
+Enable Docker container registry:
+
+```ruby
+# In config/gitlab.rb
+registry_external_url 'https://registry.gitlab.example.com'
+gitlab_rails['registry_enabled'] = true
+registry['enable'] = true
+```
+
+Add registry domain to compose file:
+
+```yaml
+services:
+  gitlab:
+    ports:
+      - '5050:5050'
+```
+
+### GitLab Pages
+
+Enable static site hosting:
+
+```ruby
+# In config/gitlab.rb
+pages_external_url "https://pages.gitlab.example.com"
+gitlab_pages['enable'] = true
+gitlab_pages['inplace_chroot'] = true
+```
+
+### High Availability Configuration
+
+For enterprise deployments requiring HA:
+
+#### External PostgreSQL
+
+```yaml
+# docker-compose.yml
+services:
+  gitlab:
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        postgresql['enable'] = false
+        gitlab_rails['db_adapter'] = 'postgresql'
+        gitlab_rails['db_encoding'] = 'utf8'
+        gitlab_rails['db_host'] = 'postgres.example.com'
+        gitlab_rails['db_port'] = 5432
+        gitlab_rails['db_database'] = 'gitlabhq_production'
+        gitlab_rails['db_username'] = 'gitlab'
+        gitlab_rails['db_password'] = 'secure_password'
+```
+
+#### External Redis
+
+```yaml
+environment:
+  GITLAB_OMNIBUS_CONFIG: |
+    redis['enable'] = false
+    gitlab_rails['redis_host'] = 'redis.example.com'
+    gitlab_rails['redis_port'] = 6379
+    gitlab_rails['redis_password'] = 'secure_password'
+```
+
+#### Object Storage (S3)
+
+```ruby
+# In config/gitlab.rb
+gitlab_rails['object_store']['enabled'] = true
+gitlab_rails['object_store']['connection'] = {
+  'provider' => 'AWS',
+  'region' => 'us-east-1',
+  'aws_access_key_id' => 'YOUR_ACCESS_KEY',
+  'aws_secret_access_key' => 'YOUR_SECRET_KEY'
+}
+gitlab_rails['object_store']['objects']['artifacts']['bucket'] = 'gitlab-artifacts'
+gitlab_rails['object_store']['objects']['lfs']['bucket'] = 'gitlab-lfs'
+gitlab_rails['object_store']['objects']['uploads']['bucket'] = 'gitlab-uploads'
+```
+
+### Performance Tuning
+
+#### Optimize for Your Workload
+
+```ruby
+# In config/gitlab.rb
+
+# For small teams (< 100 users)
+puma['worker_processes'] = 2
+sidekiq['max_concurrency'] = 10
+
+# For medium teams (100-500 users)
+puma['worker_processes'] = 4
+sidekiq['max_concurrency'] = 25
+
+# For large teams (500+ users)
+puma['worker_processes'] = 8
+sidekiq['max_concurrency'] = 50
+
+# PostgreSQL tuning
+postgresql['shared_buffers'] = "4GB"
+postgresql['work_mem'] = "64MB"
+postgresql['maintenance_work_mem'] = "1GB"
+postgresql['effective_cache_size'] = "12GB"
+```
+
+#### Resource Limits
+
+```yaml
+# docker-compose.override.yml
+services:
+  gitlab:
+    deploy:
+      resources:
+        limits:
+          cpus: '8'
+          memory: 16G
+        reservations:
+          cpus: '4'
+          memory: 8G
+```
+
+### Custom Runners
+
+#### Shell Executor (Simple)
 
 ```bash
-# Clone the GitLab server repository
-git clone https://github.com/yourusername/gitlab-server.git
-cd gitlab-server
-
-# Create configuration directories
-mkdir -p config/ssl data logs backups
-
-# Create environment file from template
-cp .env.example .env
-
-# Edit the environment file with your settings
-nano .env
+# Register runner
+docker run --rm -it -v /srv/gitlab-runner/config:/etc/gitlab-runner \
+  gitlab/gitlab-runner register \
+  --url https://gitlab.example.com \
+  --token YOUR_REGISTRATION_TOKEN \
+  --executor shell
 ```
 
-### 3. SSL Certificate Setup
-
-#### Option A: Using Let's Encrypt (Recommended for Production)
+#### Docker Executor (Recommended)
 
 ```bash
-# Install certbot
-sudo apt install -y certbot
-
-# Obtain certificates
-sudo certbot certonly --standalone -d gitlab.example.com
-
-# Copy certificates to GitLab config directory
-sudo cp /etc/letsencrypt/live/gitlab.example.com/fullchain.pem config/ssl/gitlab.crt
-sudo cp /etc/letsencrypt/live/gitlab.example.com/privkey.pem config/ssl/gitlab.key
-
-# Set proper permissions
-sudo chmod 644 config/ssl/gitlab.crt
-sudo chmod 600 config/ssl/gitlab.key
+docker run --rm -it -v /srv/gitlab-runner/config:/etc/gitlab-runner \
+  gitlab/gitlab-runner register \
+  --url https://gitlab.example.com \
+  --token YOUR_REGISTRATION_TOKEN \
+  --executor docker \
+  --docker-image alpine:latest \
+  --docker-volumes /var/run/docker.sock:/var/run/docker.sock
 ```
 
-#### Option B: Using Self-Signed Certificates (Testing Only)
+#### Kubernetes Executor (Enterprise)
 
 ```bash
-# Generate self-signed certificate
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout config/ssl/gitlab.key -out config/ssl/gitlab.crt
+docker run --rm -it -v /srv/gitlab-runner/config:/etc/gitlab-runner \
+  gitlab/gitlab-runner register \
+  --url https://gitlab.example.com \
+  --token YOUR_REGISTRATION_TOKEN \
+  --executor kubernetes
 ```
 
-### 4. Docker Compose Configuration
+### Email Templates Customization
 
-Edit the `docker-compose.yml` file to match your environment:
-
-```bash
-nano docker-compose.yml
+```ruby
+# In config/gitlab.rb
+gitlab_rails['gitlab_email_from'] = 'gitlab@example.com'
+gitlab_rails['gitlab_email_display_name'] = 'GitLab'
+gitlab_rails['gitlab_email_reply_to'] = 'noreply@example.com'
+gitlab_rails['gitlab_email_subject_suffix'] = '[GitLab]'
 ```
 
-Key configurations to update:
-- `hostname`: Set to your GitLab domain
-- `external_url`: Set to your GitLab domain with https://
-- Resource limits (if needed)
+### Webhook Rate Limiting
 
-### 5. GitLab Deployment
-
-```bash
-# Make scripts executable
-chmod +x scripts/*.sh
-
-# Start GitLab
-docker-compose up -d
-
-# Monitor the startup process
-docker logs -f gitlab
+```ruby
+# In config/gitlab.rb
+gitlab_rails['webhook_timeout'] = 10
+gitlab_rails['max_request_duration_seconds'] = 57
 ```
 
-The initial startup may take 5-10 minutes depending on your system.
+### Git Configuration
 
-### 6. Post-Deployment Configuration
-
-#### Retrieve Initial Root Password
-
-```bash
-docker exec -it gitlab grep 'Password:' /etc/gitlab/initial_root_password
+```ruby
+# In config/gitlab.rb
+gitlab_rails['gitlab_default_branch'] = 'main'
+gitlab_rails['max_attachment_size'] = 100  # MB
+gitlab_rails['git_timeout'] = 30
 ```
 
-#### Access GitLab Web Interface
+### Backup Encryption
 
-1. Open a browser and navigate to `https://gitlab.example.com`
-2. Log in with username `root` and the password retrieved above
-3. Change the root password immediately
-
-#### Basic Configuration
-
-Through the GitLab web interface:
-
-1. **User Settings**:
-   - Create admin users
-   - Set up 2FA for admins
-
-2. **Instance Settings**:
-   - Configure email notifications
-   - Set visibility and access controls
-   - Configure sign-up restrictions
-
-3. **CI/CD Settings**:
-   - Register GitLab Runners (if needed)
-   - Configure CI/CD variables
-
-### 7. Setup Automated Maintenance
-
-#### Configure Backup Schedule
-
-Add to crontab:
-
-```bash
-# Edit crontab
-crontab -e
-
-# Add daily backup at 2 AM
-0 2 * * * /path/to/gitlab-server/scripts/backup.sh >> /path/to/gitlab-server/logs/cron-backup.log 2>&1
+```ruby
+# In config/gitlab.rb
+gitlab_rails['backup_encryption'] = 'AES256'
+gitlab_rails['backup_encryption_key'] = 'YOUR_ENCRYPTION_KEY'
 ```
-
-#### Configure Update Reminders
-
-Add to crontab:
-
-```bash
-# Check for GitLab updates weekly and notify admin
-0 3 * * 0 docker exec gitlab apt-get update && docker exec gitlab apt-get -s upgrade | grep gitlab | mail -s "GitLab Updates Available" admin@example.com
-```
-
-## Production Hardening
-
-1. **Security Hardening**:
-   - Enable SSH key authentication only
-   - Configure fail2ban
-   - Set up a proper firewall (ufw or iptables)
-
-2. **Performance Optimization**:
-   - Tune PostgreSQL settings in gitlab.rb
-   - Adjust worker counts based on system resources
-
-3. **Monitoring Setup**:
-   - Enable Prometheus metrics
-   - Set up Grafana dashboards (optional)
-   - Configure alert notifications
-
-## Troubleshooting Common Issues
-
-### Startup Issues
-
-**Problem**: GitLab container exits shortly after starting
-**Solution**: Check logs with `docker logs gitlab` and verify system meets minimum requirements
-
-### Connection Issues
-
-**Problem**: Cannot connect to GitLab web interface
-**Solution**: 
-- Verify domain DNS is correctly configured
-- Check firewall allows ports 80/443
-- Verify SSL certificates are properly installed
-
-### Performance Issues
-
-**Problem**: GitLab is slow or unresponsive
-**Solution**:
-- Increase server resources
-- Tune PostgreSQL and Redis settings
-- Check `docker stats gitlab` for resource usage
-
-### Backup/Restore Issues
-
-**Problem**: Backup script fails
-**Solution**:
-- Check disk space
-- Verify permissions on backup directory
-- Review logs in the `logs/` directory
-
-## Scaling Guidelines
-
-### Vertical Scaling
-
-1. Increase server resources:
-   - Add more CPU cores
-   - Increase RAM
-   - Use faster SSDs
-
-2. Update Docker Compose resource limits
-
-### Horizontal Scaling
-
-For larger deployments, consider:
-1. Separating PostgreSQL to a dedicated server
-2. Setting up Redis sentinel for HA
-3. Implementing load balancing for multiple GitLab application servers
-
-## Maintenance Procedures
-
-### Regular Updates
-
-```bash
-./scripts/update.sh
-```
-
-### Database Maintenance
-
-```bash
-# Connect to GitLab container
-docker exec -it gitlab bash
-
-# Run GitLab database maintenance tasks
-gitlab-rake gitlab:db:clean
-gitlab-rake gitlab:artifacts:clean
-gitlab-rake gitlab:lfs:clean
-gitlab-rake gitlab:uploads:clean
-```
-
-### Log Management
-
-```bash
-# Configure log rotation
-sudo nano /etc/logrotate.d/gitlab
-```
-
-## Migration Guidelines
-
-### Migrating from Another GitLab Instance
-
-1. Create a backup on the old instance
-2. Copy backup file to the new server's `backups` directory
-3. Use restore script:
-   ```bash
-   ./scripts/restore.sh <backup_filename>
-   ```
-
-### Migrating from Non-Docker GitLab
-
-1. Create a backup on the old instance
-2. Copy backup file to the new server's `backups` directory
-3. Adjust backup file format if needed
-4. Use restore script with appropriate options

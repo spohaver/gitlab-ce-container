@@ -1,0 +1,239 @@
+# ============================================================================
+# GitLab CE - PRODUCTION Profile
+# ============================================================================
+# This configuration is hardened and optimized for production deployments.
+# 
+# Features:
+# - Pinned to specific version for stability
+# - Strong security defaults
+# - Valid SSL certificates REQUIRED
+# - Rate limiting and brute-force protection
+# - Resource limits to prevent runaway processes
+# - Named volumes for reliable data persistence
+# - Comprehensive health checks and monitoring
+# - Secure session management
+#
+# Usage:
+#   docker-compose -f docker-compose.production.yml up -d
+#
+# PREREQUISITES:
+# - Valid SSL certificate in config/ssl/
+# - .env file with all production credentials
+# - Firewall configured (ports 80, 443, SSH)
+# - fail2ban installed and configured
+# - Automated backup system configured
+# - Monitoring and alerting configured
+#
+# ============================================================================
+
+version: '3.6'
+
+services:
+  gitlab:
+    # CRITICAL: Pin to specific tested version - never use :latest in production
+    # Test version upgrades in staging first
+    image: 'gitlab/gitlab-ce:18.8.2-ce.0'
+    container_name: gitlab-production
+    restart: unless-stopped
+    hostname: '${GITLAB_DOMAIN}'
+    
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        # External URL - MUST be configured
+        external_url 'https://${GITLAB_DOMAIN}'
+        gitlab_rails['gitlab_shell_ssh_port'] = ${GITLAB_SSH_PORT:-2222}
+        
+        # ====================================================================
+        # SSL/TLS Configuration - SECURITY CRITICAL
+        # ====================================================================
+        nginx['redirect_http_to_https'] = true
+        nginx['ssl_certificate'] = "/etc/gitlab/ssl/${GITLAB_DOMAIN}.crt"
+        nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/${GITLAB_DOMAIN}.key"
+        
+        # Use only modern TLS versions
+        nginx['ssl_protocols'] = "TLSv1.2 TLSv1.3"
+        nginx['ssl_prefer_server_ciphers'] = "on"
+        nginx['ssl_ciphers'] = "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305"
+        
+        # HSTS - enforce HTTPS
+        nginx['hsts_max_age'] = 63072000  # 2 years
+        nginx['hsts_include_subdomains'] = false
+        
+        # ====================================================================
+        # Email Configuration
+        # ====================================================================
+        gitlab_rails['smtp_enable'] = true
+        gitlab_rails['smtp_address'] = "${GITLAB_SMTP_ADDRESS}"
+        gitlab_rails['smtp_port'] = ${GITLAB_SMTP_PORT:-587}
+        gitlab_rails['smtp_user_name'] = "${GITLAB_SMTP_USER}"
+        gitlab_rails['smtp_password'] = "${GITLAB_SMTP_PASSWORD}"
+        gitlab_rails['smtp_domain'] = "${GITLAB_SMTP_DOMAIN}"
+        gitlab_rails['smtp_authentication'] = "login"
+        gitlab_rails['smtp_enable_starttls_auto'] = true
+        gitlab_rails['smtp_tls'] = false
+        gitlab_rails['smtp_openssl_verify_mode'] = 'peer'
+        
+        gitlab_rails['gitlab_email_from'] = "${GITLAB_EMAIL_FROM}"
+        gitlab_rails['gitlab_email_reply_to'] = "${GITLAB_EMAIL_REPLY_TO}"
+        
+        # ====================================================================
+        # Performance Tuning - Adjust based on server capacity
+        # ====================================================================
+        puma['worker_processes'] = 4
+        puma['worker_timeout'] = 60
+        sidekiq['max_concurrency'] = 25
+        postgresql['shared_buffers'] = "1GB"
+        postgresql['max_worker_processes'] = 8
+        postgresql['effective_cache_size'] = "4GB"
+        
+        # ====================================================================
+        # Security Settings - CRITICAL FOR PRODUCTION
+        # ====================================================================
+        
+        # Disable public signup - users must be invited
+        gitlab_rails['gitlab_signup_enabled'] = false
+        
+        # Require admin approval for new users (if signup enabled)
+        gitlab_rails['gitlab_signup_requires_admin_approval'] = true
+        
+        # Rate limiting and brute-force protection
+        gitlab_rails['rack_attack_git_basic_auth'] = {
+          'enabled' => true,
+          'ip_whitelist' => ["127.0.0.1"],
+          'maxretry' => 10,
+          'findtime' => 60,
+          'bantime' => 3600
+        }
+        
+        # Session security - shorter timeout for production
+        gitlab_rails['session_expire_delay'] = 1440  # 24 hours
+        
+        # Password requirements
+        gitlab_rails['password_minimum_length'] = 12
+        
+        # ====================================================================
+        # Backup Configuration
+        # ====================================================================
+        gitlab_rails['backup_keep_time'] = 604800  # 7 days
+        gitlab_rails['backup_archive_permissions'] = 0640
+        gitlab_rails['backup_pg_schema'] = 'public'
+        
+        # Enable backup encryption (configure GPG key separately)
+        # gitlab_rails['backup_upload_connection'] = { ... }
+        # gitlab_rails['backup_upload_remote_directory'] = 'gitlab-backups'
+        
+        # ====================================================================
+        # Monitoring and Observability
+        # ====================================================================
+        prometheus['enable'] = true
+        prometheus['listen_address'] = 'localhost:9090'
+        prometheus['scrape_interval'] = 15
+        
+        node_exporter['enable'] = true
+        redis_exporter['enable'] = true
+        postgres_exporter['enable'] = true
+        
+        # GitLab exporter for custom metrics
+        gitlab_exporter['enable'] = true
+        gitlab_exporter['listen_address'] = 'localhost'
+        gitlab_exporter['listen_port'] = 9168
+        
+        # ====================================================================
+        # Logging Configuration
+        # ====================================================================
+        logging['logrotate_frequency'] = "daily"
+        logging['logrotate_rotate'] = 30
+        logging['logrotate_compress'] = "compress"
+        logging['logrotate_method'] = "copytruncate"
+        logging['logrotate_delaycompress'] = "delaycompress"
+        
+        # ====================================================================
+        # Git/Repository Settings
+        # ====================================================================
+        gitlab_rails['gitlab_default_projects_limit'] = 100
+        gitlab_rails['gitlab_default_can_create_group'] = false  # Admin only
+        
+        # Repository storage locations
+        git_data_dirs({
+          "default" => {
+            "path" => "/var/opt/gitlab/git-data"
+          }
+        })
+        
+    ports:
+      - '80:80'       # HTTP (will redirect to HTTPS)
+      - '443:443'     # HTTPS
+      - '${GITLAB_SSH_PORT:-2222}:22'  # SSH on non-standard port to avoid conflicts
+      
+    volumes:
+      # Use named Docker volumes for reliability
+      - gitlab-data:/var/opt/gitlab
+      - gitlab-config:/etc/gitlab
+      - gitlab-logs:/var/log/gitlab
+      # Mount host directories for backups and SSL (read-only for SSL)
+      - ./config/ssl:/etc/gitlab/ssl:ro
+      - ./backups:/var/opt/gitlab/backups
+      
+    shm_size: '1g'  # Increase for CI/CD workloads
+    
+    # Resource limits - adjust based on server capacity
+    # These prevent GitLab from consuming all system resources
+    deploy:
+      resources:
+        limits:
+          memory: 16G
+          cpus: '8.0'
+        reservations:
+          memory: 8G
+          cpus: '4.0'
+    
+    # Health checks - ensure GitLab is responding
+    healthcheck:
+      test: ["CMD", "/opt/gitlab/bin/gitlab-healthcheck", "--fail", "--max-time", "10"]
+      interval: 60s
+      timeout: 30s
+      retries: 5
+      start_period: 300s  # Give GitLab 5 minutes to start
+      
+    networks:
+      - gitlab-network
+    
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  gitlab-data:
+    driver: local
+    # Consider using a backup-enabled volume driver for production
+  gitlab-config:
+    driver: local
+  gitlab-logs:
+    driver: local
+
+networks:
+  gitlab-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.29.0.0/16
+
+# ============================================================================
+# POST-DEPLOYMENT CHECKLIST
+# ============================================================================
+# After starting GitLab for the first time:
+# 
+# 1. Change the initial root password immediately
+# 2. Enable 2FA for all admin accounts
+# 3. Configure automated backups (cron job)
+# 4. Test backup and restore procedures
+# 5. Set up monitoring alerts
+# 6. Configure fail2ban for brute-force protection
+# 7. Review and customize user permissions
+# 8. Set up offsite backup sync
+# 9. Configure log aggregation
+# 10. Document your disaster recovery procedures
+# 
+# See SECURITY.md and DEPLOYMENT.md for detailed instructions.
+# ============================================================================

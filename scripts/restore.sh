@@ -8,12 +8,16 @@
 set -e
 
 # Script configuration
-GITLAB_DIR="/home/sohaver/workplace/gitlab-server"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+GITLAB_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 BACKUP_DIR="$GITLAB_DIR/backups"
 LOG_FILE="$GITLAB_DIR/logs/restore_$(date +"%Y-%m-%d_%H-%M-%S").log"
 
+# Container name - auto-detect or use environment variable
+CONTAINER_NAME="${GITLAB_CONTAINER_NAME:-gitlab}"
+
 # Ensure log directory exists
-mkdir -p "$(dirname $LOG_FILE)"
+mkdir -p "$(dirname "$LOG_FILE")"
 
 # Print to console and log file
 log() {
@@ -58,43 +62,53 @@ bash "$GITLAB_DIR/scripts/backup.sh"
 
 # Stop GitLab processes before restore
 log "Stopping GitLab processes..."
-docker exec gitlab gitlab-ctl stop unicorn
-docker exec gitlab gitlab-ctl stop puma
-docker exec gitlab gitlab-ctl stop sidekiq
+docker exec "$CONTAINER_NAME" gitlab-ctl stop puma
+docker exec "$CONTAINER_NAME" gitlab-ctl stop sidekiq
 
-# Copy backup file to correct location if needed
-if [[ "$BACKUP_PATH" != "/var/opt/gitlab/backups/"* ]]; then
+# Copy backup file into container if not already present (e.g. via bind mount)
+if docker exec "$CONTAINER_NAME" test -f "/var/opt/gitlab/backups/$BACKUP_FILE"; then
+  log "Backup file already present in container (bind mount), skipping copy"
+else
   log "Copying backup file to GitLab container..."
-  docker cp "$BACKUP_PATH" gitlab:/var/opt/gitlab/backups/
+  docker cp "$BACKUP_PATH" "$CONTAINER_NAME":/var/opt/gitlab/backups/
 fi
 
-# Extract backup timestamp
-TIMESTAMP=$(echo "$BACKUP_FILE" | sed -E 's/^[0-9]+_([0-9_]+)_.*/\1/')
-if [ -z "$TIMESTAMP" ]; then
-  TIMESTAMP=$(echo "$BACKUP_FILE" | sed -E 's/.*_gitlab_backup.tar//')
+# Extract backup identifier (everything before _gitlab_backup.tar)
+TIMESTAMP=$(echo "$BACKUP_FILE" | sed -E 's/_gitlab_backup\.tar$//')
+
+# Validate timestamp extraction
+if [ -z "$TIMESTAMP" ] || [ "$TIMESTAMP" = "$BACKUP_FILE" ]; then
+  log "Error: Could not extract timestamp from backup filename: $BACKUP_FILE"
+  log "Expected format: *_gitlab_backup.tar"
+  exit 1
 fi
+
+log "Backup timestamp: $TIMESTAMP"
 
 # Perform restore
 log "Restoring GitLab from backup..."
-docker exec gitlab gitlab-backup restore BACKUP=$TIMESTAMP force=yes
-if [ $? -ne 0 ]; then
+if ! docker exec -e GITLAB_ASSUME_YES=1 "$CONTAINER_NAME" gitlab-backup restore BACKUP=$TIMESTAMP FORCE=yes; then
   log "Error: GitLab restore failed"
-  docker exec gitlab gitlab-ctl restart
+  docker exec "$CONTAINER_NAME" gitlab-ctl restart
   exit 1
 fi
 
 # Restore configuration files if available
 if [ -d "$BACKUP_DIR/config" ]; then
   log "Restoring GitLab configuration files..."
-  docker exec gitlab cp -r /var/opt/gitlab/backups/config/* /etc/gitlab/
+  if ! docker exec "$CONTAINER_NAME" sh -c "cp -r /var/opt/gitlab/backups/config/* /etc/gitlab/"; then
+    log "Warning: Configuration restore failed (non-fatal)"
+  else
+    log "Configuration files restored successfully"
+  fi
 fi
 
 # Reconfigure and restart GitLab
 log "Reconfiguring GitLab..."
-docker exec gitlab gitlab-ctl reconfigure
+docker exec "$CONTAINER_NAME" gitlab-ctl reconfigure
 
 log "Starting GitLab processes..."
-docker exec gitlab gitlab-ctl restart
+docker exec "$CONTAINER_NAME" gitlab-ctl restart
 
 # Wait for GitLab to be fully operational
 log "Waiting for GitLab to become available..."
@@ -107,7 +121,7 @@ while [ $attempts -lt $max_attempts ]; do
   log "Attempt $attempts of $max_attempts..."
   
   # Check if GitLab is healthy
-  if docker exec gitlab gitlab-healthcheck --fail --max-time 10; then
+  if docker exec "$CONTAINER_NAME" gitlab-healthcheck --fail --max-time 10; then
     log "GitLab is up and running"
     break
   fi
