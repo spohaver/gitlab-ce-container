@@ -24,7 +24,7 @@ import secrets
 import string
 import subprocess
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Dict
 
 # Colors for output
 class Colors:
@@ -54,8 +54,8 @@ def print_error(text: str):
 
 def generate_password(length: int = 25) -> str:
     """Generate a secure random password."""
-    # Exclude quotes and backslash upfront — they break shell and .env parsing
-    alphabet = string.ascii_letters + string.digits + "!@#$%^&*()-_=+[]{}|;:,.<>?"
+    # Exclude shell metacharacters and quotes — they break shell and .env parsing
+    alphabet = string.ascii_letters + string.digits + "!@#%^&*()-_=+[]{}:,.?"
     return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 def prompt_input(prompt: str, default: str = "") -> str:
@@ -280,7 +280,7 @@ class SetupWizard:
             f.write("# " + "-" * 76 + "\n")
             f.write("# Basic Configuration\n")
             f.write("# " + "-" * 76 + "\n")
-            f.write(f"GITLAB_DOMAIN={self.config['domain']}\n")
+            f.write(f"GITLAB_DOMAIN=\"{self.config['domain']}\"\n")
             f.write(f"GITLAB_SSH_PORT={self.config['ssh_port']}\n\n")
             
             f.write("# " + "-" * 76 + "\n")
@@ -289,13 +289,13 @@ class SetupWizard:
             f.write(f"GITLAB_SMTP_ENABLE={self.config['smtp_enable']}\n")
             
             if self.config['smtp_enable'] == 'true':
-                f.write(f"GITLAB_SMTP_ADDRESS={self.config.get('smtp_address', '')}\n")
+                f.write(f"GITLAB_SMTP_ADDRESS=\"{self.config.get('smtp_address', '')}\"\n")
                 f.write(f"GITLAB_SMTP_PORT={self.config.get('smtp_port', '587')}\n")
                 f.write(f"GITLAB_SMTP_USER=\"{self.config.get('smtp_user', '')}\"\n")
                 f.write(f"GITLAB_SMTP_PASSWORD=\"{self.config.get('smtp_password', '')}\"\n")
-                f.write(f"GITLAB_SMTP_DOMAIN={self.config.get('smtp_domain', '')}\n")
-                f.write(f"GITLAB_EMAIL_FROM={self.config.get('email_from', '')}\n")
-                f.write(f"GITLAB_EMAIL_REPLY_TO={self.config.get('email_reply_to', '')}\n")
+                f.write(f"GITLAB_SMTP_DOMAIN=\"{self.config.get('smtp_domain', '')}\"\n")
+                f.write(f"GITLAB_EMAIL_FROM=\"{self.config.get('email_from', '')}\"\n")
+                f.write(f"GITLAB_EMAIL_REPLY_TO=\"{self.config.get('email_reply_to', '')}\"\n")
             
             if self.config['deployment_type'] == 'production':
                 f.write("\n# " + "-" * 76 + "\n")
