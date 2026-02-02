@@ -29,7 +29,7 @@ services:
     environment:
       GITLAB_OMNIBUS_CONFIG: |
         # Basic URL configuration
-        external_url 'http://gitlab.sandbox.local:8080'
+        external_url 'http://gitlab.sandbox.local'
         gitlab_rails['gitlab_shell_ssh_port'] = 2224
         
         # Disable HTTPS redirect for easy local testing

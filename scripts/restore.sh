@@ -65,22 +65,20 @@ log "Stopping GitLab processes..."
 docker exec "$CONTAINER_NAME" gitlab-ctl stop puma
 docker exec "$CONTAINER_NAME" gitlab-ctl stop sidekiq
 
-# Copy backup file to correct location if needed
-if [[ "$BACKUP_PATH" != "/var/opt/gitlab/backups/"* ]]; then
+# Copy backup file into container if not already present (e.g. via bind mount)
+if docker exec "$CONTAINER_NAME" test -f "/var/opt/gitlab/backups/$BACKUP_FILE"; then
+  log "Backup file already present in container (bind mount), skipping copy"
+else
   log "Copying backup file to GitLab container..."
   docker cp "$BACKUP_PATH" "$CONTAINER_NAME":/var/opt/gitlab/backups/
 fi
 
-# Extract backup timestamp
-TIMESTAMP=$(echo "$BACKUP_FILE" | sed -E 's/^[0-9]+_([0-9_]+)_.*/\1/')
-if [ -z "$TIMESTAMP" ]; then
-  TIMESTAMP=$(echo "$BACKUP_FILE" | sed -E 's/.*_gitlab_backup.tar//')
-fi
+# Extract backup identifier (everything before _gitlab_backup.tar)
+TIMESTAMP=$(echo "$BACKUP_FILE" | sed -E 's/_gitlab_backup\.tar$//')
 
 # Perform restore
 log "Restoring GitLab from backup..."
-docker exec "$CONTAINER_NAME" gitlab-backup restore BACKUP=$TIMESTAMP FORCE=yes
-if [ $? -ne 0 ]; then
+if ! docker exec -e GITLAB_ASSUME_YES=1 "$CONTAINER_NAME" gitlab-backup restore BACKUP=$TIMESTAMP FORCE=yes; then
   log "Error: GitLab restore failed"
   docker exec "$CONTAINER_NAME" gitlab-ctl restart
   exit 1
@@ -89,7 +87,7 @@ fi
 # Restore configuration files if available
 if [ -d "$BACKUP_DIR/config" ]; then
   log "Restoring GitLab configuration files..."
-  docker exec "$CONTAINER_NAME" cp -r /var/opt/gitlab/backups/config/* /etc/gitlab/
+  docker exec "$CONTAINER_NAME" sh -c "cp -r /var/opt/gitlab/backups/config/* /etc/gitlab/"
 fi
 
 # Reconfigure and restart GitLab

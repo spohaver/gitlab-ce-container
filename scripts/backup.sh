@@ -111,10 +111,6 @@ fi
 # gpg --symmetric --cipher-algo AES256 "$LATEST_BACKUP"
 # # Then upload the .gpg file instead
 
-# Cleanup old backups (GitLab's internal mechanism)
-log "Cleaning up old backups..."
-docker exec "$CONTAINER_NAME" gitlab-backup cleanup
-
 log "Backup completed successfully"
 
 # =============================================================================
