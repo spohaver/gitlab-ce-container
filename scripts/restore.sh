@@ -76,6 +76,15 @@ fi
 # Extract backup identifier (everything before _gitlab_backup.tar)
 TIMESTAMP=$(echo "$BACKUP_FILE" | sed -E 's/_gitlab_backup\.tar$//')
 
+# Validate timestamp extraction
+if [ -z "$TIMESTAMP" ] || [ "$TIMESTAMP" = "$BACKUP_FILE" ]; then
+  log "Error: Could not extract timestamp from backup filename: $BACKUP_FILE"
+  log "Expected format: *_gitlab_backup.tar"
+  exit 1
+fi
+
+log "Backup timestamp: $TIMESTAMP"
+
 # Perform restore
 log "Restoring GitLab from backup..."
 if ! docker exec -e GITLAB_ASSUME_YES=1 "$CONTAINER_NAME" gitlab-backup restore BACKUP=$TIMESTAMP FORCE=yes; then
@@ -87,7 +96,11 @@ fi
 # Restore configuration files if available
 if [ -d "$BACKUP_DIR/config" ]; then
   log "Restoring GitLab configuration files..."
-  docker exec "$CONTAINER_NAME" sh -c "cp -r /var/opt/gitlab/backups/config/* /etc/gitlab/"
+  if ! docker exec "$CONTAINER_NAME" sh -c "cp -r /var/opt/gitlab/backups/config/* /etc/gitlab/"; then
+    log "Warning: Configuration restore failed (non-fatal)"
+  else
+    log "Configuration files restored successfully"
+  fi
 fi
 
 # Reconfigure and restart GitLab

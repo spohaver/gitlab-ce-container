@@ -58,7 +58,8 @@ def print_error(text: str):
 def generate_password(length: int = 25) -> str:
     """Generate a secure random password."""
     # Exclude shell metacharacters and quotes — they break shell and .env parsing
-    alphabet = string.ascii_letters + string.digits + "!@#%^&*()-_=+[]{}:,.?"
+    # Removed: / \ ? $ ` | ; ' " < > & to avoid shell and .env issues
+    alphabet = string.ascii_letters + string.digits + "!@#%^*()_=+[]{}:,."
     return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 def prompt_input(prompt: str, default: str = "") -> str:
@@ -228,9 +229,29 @@ class SetupWizard:
             
             if configure_smtp:
                 self.config['smtp_enable'] = 'true'
-                self.config['smtp_address'] = args.smtp_address or prompt_input("SMTP server address (e.g., smtp.gmail.com)")
+
+                # SMTP address
+                if args.smtp_address:
+                    self.config['smtp_address'] = args.smtp_address
+                elif not args.non_interactive:
+                    self.config['smtp_address'] = prompt_input("SMTP server address (e.g., smtp.gmail.com)")
+                else:
+                    print_error("--smtp-address is required when configuring SMTP in non-interactive mode")
+                    sys.exit(1)
+
+                # SMTP port
                 self.config['smtp_port'] = str(args.smtp_port) if args.smtp_port else prompt_input("SMTP port", "587")
-                self.config['smtp_user'] = args.smtp_user or prompt_input("SMTP username")
+
+                # SMTP user
+                if args.smtp_user:
+                    self.config['smtp_user'] = args.smtp_user
+                elif not args.non_interactive:
+                    self.config['smtp_user'] = prompt_input("SMTP username")
+                else:
+                    print_error("--smtp-user is required when configuring SMTP in non-interactive mode")
+                    sys.exit(1)
+
+                # SMTP password
                 if args.smtp_password:
                     self.config['smtp_password'] = args.smtp_password
                 elif not args.non_interactive:
@@ -238,9 +259,23 @@ class SetupWizard:
                 else:
                     print_error("--smtp-password is required when configuring SMTP in non-interactive mode")
                     sys.exit(1)
-                self.config['smtp_domain'] = args.smtp_domain or prompt_input("SMTP domain", self.config['domain'])
-                self.config['email_from'] = args.email_from or prompt_input("Email 'From' address", f"gitlab@{self.config['domain']}")
-                self.config['email_reply_to'] = args.email_reply_to or prompt_input("Email 'Reply-To' address", f"noreply@{self.config['domain']}")
+
+                # SMTP domain (has default fallback)
+                self.config['smtp_domain'] = args.smtp_domain or (
+                    prompt_input("SMTP domain", self.config['domain']) if not args.non_interactive else self.config['domain']
+                )
+
+                # Email from (has default fallback)
+                self.config['email_from'] = args.email_from or (
+                    prompt_input("Email 'From' address", f"gitlab@{self.config['domain']}")
+                    if not args.non_interactive else f"gitlab@{self.config['domain']}"
+                )
+
+                # Email reply-to (has default fallback)
+                self.config['email_reply_to'] = args.email_reply_to or (
+                    prompt_input("Email 'Reply-To' address", f"noreply@{self.config['domain']}")
+                    if not args.non_interactive else f"noreply@{self.config['domain']}"
+                )
             else:
                 self.config['smtp_enable'] = 'false'
         
