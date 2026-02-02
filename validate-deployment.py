@@ -3,16 +3,21 @@
 GitLab Deployment Validation Script
 Checks configuration, security, and system requirements before deployment.
 
+Requirements:
+    - Python 3.6 or higher
+    - Docker Engine 20.10+
+    - Docker Compose v2+
+
 Usage:
     # Interactive validation (auto-detect type)
     ./validate-deployment.py
-    
+
     # Validate specific deployment type
     ./validate-deployment.py --deployment-type production
-    
+
     # Non-interactive mode (for CI/CD)
     ./validate-deployment.py --deployment-type production --non-interactive
-    
+
     # Skip specific checks
     ./validate-deployment.py --skip-checks docker,firewall
 """
@@ -107,15 +112,29 @@ class Validator:
         """Check Docker installation and status."""
         if self.should_skip('docker'):
             return
-            
+
         self.print_check("Docker installation")
-        
+
         if shutil.which('docker'):
             returncode, output = self.run_command(['docker', '--version'])
             if returncode == 0:
-                version = output.split()[2].rstrip(',')
-                self.print_pass(f"Docker installed: {version}")
-                
+                version_str = output.split()[2].rstrip(',')
+                self.print_pass(f"Docker installed: {version_str}")
+
+                # Check minimum version (20.10+)
+                try:
+                    version_parts = version_str.split('.')
+                    major = int(version_parts[0])
+                    minor = int(version_parts[1]) if len(version_parts) > 1 else 0
+
+                    if major > 20 or (major == 20 and minor >= 10):
+                        self.print_pass("Docker version meets requirements (20.10+)")
+                    else:
+                        self.print_warn(f"Docker {version_str} is below recommended 20.10+")
+                        self.print_info("Update Docker for best compatibility")
+                except (ValueError, IndexError):
+                    self.print_info("Could not parse Docker version for comparison")
+
                 # Check if Docker daemon is running
                 returncode, _ = self.run_command(['docker', 'ps'])
                 if returncode == 0:
@@ -133,20 +152,44 @@ class Validator:
         """Check Docker Compose installation."""
         if self.should_skip('docker-compose'):
             return
-            
+
         self.print_check("Docker Compose installation")
-        
+
         # Check for docker compose (v2)
         returncode, output = self.run_command(['docker', 'compose', 'version'])
         if returncode == 0:
-            version = output.split()[3] if len(output.split()) > 3 else "unknown"
-            self.print_pass(f"Docker Compose installed: {version}")
+            version_str = output.split()[3] if len(output.split()) > 3 else "unknown"
+            self.print_pass(f"Docker Compose v2 installed: {version_str}")
+
+            # Check minimum version (2.0+)
+            try:
+                if version_str.startswith('v'):
+                    version_str = version_str[1:]
+                major = int(version_str.split('.')[0])
+                if major >= 2:
+                    self.print_pass("Docker Compose version meets requirements (v2+)")
+                else:
+                    self.print_warn(f"Docker Compose v{version_str} is below recommended v2+")
+                    self.print_info("Update: https://docs.docker.com/compose/install/")
+            except (ValueError, IndexError):
+                self.print_info("Could not parse Docker Compose version")
         elif shutil.which('docker-compose'):
             # Check for standalone docker-compose
             returncode, output = self.run_command(['docker-compose', '--version'])
             if returncode == 0:
-                version = output.split()[2].rstrip(',')
-                self.print_pass(f"Docker Compose (standalone) installed: {version}")
+                version_str = output.split()[2].rstrip(',')
+                self.print_pass(f"Docker Compose (standalone) installed: {version_str}")
+
+                # Check version
+                try:
+                    major = int(version_str.split('.')[0])
+                    if major >= 2:
+                        self.print_pass("Docker Compose version acceptable")
+                    else:
+                        self.print_warn(f"Docker Compose v{version_str} is v1 (v2+ recommended)")
+                        self.print_info("Consider upgrading to Docker Compose v2")
+                except (ValueError, IndexError):
+                    self.print_info("Could not parse Docker Compose version")
         else:
             self.print_error("Docker Compose is not installed")
             self.print_info("Install: https://docs.docker.com/compose/install/")
@@ -231,13 +274,13 @@ class Validator:
         """Check SSL certificates exist and are valid."""
         if self.should_skip('ssl'):
             return
-            
+
         self.print_check("SSL/TLS certificates")
-        
+
         if self.deployment_type == 'sandbox':
             self.print_info("SSL checks skipped for sandbox deployment")
             return
-        
+
         # Read domain from .env
         env_file = self.script_dir / '.env'
         domain = 'gitlab.example.com'
@@ -246,19 +289,24 @@ class Validator:
             match = re.search(r'GITLAB_DOMAIN=(.+)', content)
             if match:
                 domain = match.group(1).strip()
-        
+
         ssl_dir = self.script_dir / 'config' / 'ssl'
         if not ssl_dir.exists():
             self.print_error(f"SSL directory not found: {ssl_dir}")
             self.print_info("Create with: mkdir -p config/ssl")
+            if self.deployment_type == 'production':
+                self.print_error("SSL certificates are REQUIRED for production deployments")
             return
-        
+
         cert_file = ssl_dir / f"{domain}.crt"
         key_file = ssl_dir / f"{domain}.key"
-        
-        if cert_file.exists():
+
+        cert_exists = cert_file.exists()
+        key_exists = key_file.exists()
+
+        if cert_exists:
             self.print_pass(f"Certificate file found: {domain}.crt")
-            
+
             # Check certificate expiration
             if shutil.which('openssl'):
                 returncode, output = self.run_command([
@@ -269,10 +317,12 @@ class Validator:
         else:
             self.print_error(f"Certificate file not found: {cert_file}")
             self.print_info("Obtain certificate from Let's Encrypt or commercial CA")
-        
-        if key_file.exists():
+            if self.deployment_type == 'production':
+                self.print_error("GitLab will FAIL TO START without valid SSL certificate")
+
+        if key_exists:
             self.print_pass(f"Private key file found: {domain}.key")
-            
+
             # Check key permissions
             perms = oct(key_file.stat().st_mode)[-3:]
             if perms == '600':
@@ -282,6 +332,23 @@ class Validator:
                 self.print_info(f"Fix with: chmod 600 {key_file}")
         else:
             self.print_error(f"Private key file not found: {key_file}")
+            if self.deployment_type == 'production':
+                self.print_error("GitLab will FAIL TO START without private key")
+
+        # Validate certificate and key match (if both exist)
+        if cert_exists and key_exists and shutil.which('openssl'):
+            cert_modulus, _ = self.run_command([
+                'openssl', 'x509', '-noout', '-modulus', '-in', str(cert_file)
+            ])
+            key_modulus, _ = self.run_command([
+                'openssl', 'rsa', '-noout', '-modulus', '-in', str(key_file)
+            ])
+
+            if cert_modulus and key_modulus and cert_modulus == key_modulus:
+                self.print_pass("Certificate and private key match")
+            elif cert_modulus and key_modulus:
+                self.print_error("Certificate and private key DO NOT MATCH")
+                self.print_info("Ensure certificate and key are from the same CSR")
     
     def check_compose_file(self):
         """Check Docker Compose file exists and configuration."""

@@ -3,10 +3,13 @@
 GitLab Setup Wizard
 Interactive and non-interactive configuration for GitLab deployments.
 
+Requirements:
+    - Python 3.6 or higher
+
 Usage:
     # Interactive mode
     ./setup-wizard.py
-    
+
     # Non-interactive mode
     ./setup-wizard.py --deployment-type production \
                       --domain gitlab.example.com \

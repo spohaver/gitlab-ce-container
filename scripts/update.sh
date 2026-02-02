@@ -27,7 +27,7 @@ fi
 COMPOSE_FLAG="-f $COMPOSE_FILE"
 
 # Ensure log directory exists
-mkdir -p "$(dirname $LOG_FILE)"
+mkdir -p "$(dirname "$LOG_FILE")"
 
 # Print to console and log file
 log() {

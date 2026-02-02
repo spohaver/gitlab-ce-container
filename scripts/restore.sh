@@ -17,7 +17,7 @@ LOG_FILE="$GITLAB_DIR/logs/restore_$(date +"%Y-%m-%d_%H-%M-%S").log"
 CONTAINER_NAME="${GITLAB_CONTAINER_NAME:-gitlab}"
 
 # Ensure log directory exists
-mkdir -p "$(dirname $LOG_FILE)"
+mkdir -p "$(dirname "$LOG_FILE")"
 
 # Print to console and log file
 log() {

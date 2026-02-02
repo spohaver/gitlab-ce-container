@@ -19,7 +19,7 @@ LOG_FILE="$GITLAB_DIR/logs/backup_${TIMESTAMP}.log"
 CONTAINER_NAME="${GITLAB_CONTAINER_NAME:-gitlab}"
 
 # Ensure log directory exists
-mkdir -p "$(dirname $LOG_FILE)"
+mkdir -p "$(dirname "$LOG_FILE")"
 
 # Print to console and log file
 log() {
