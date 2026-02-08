@@ -235,5 +235,5 @@ networks:
 # 9. Configure log aggregation
 # 10. Document your disaster recovery procedures
 # 
-# See SECURITY.md and DEPLOYMENT.md for detailed instructions.
+# See docs/SECURITY.md and docs/DEPLOYMENT.md for detailed instructions.
 # ============================================================================

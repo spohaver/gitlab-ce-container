@@ -9,7 +9,7 @@ This repository contains configuration and setup files for deploying GitLab Comm
 >
 > ⚠️ **Security Notice**: This repository has security controls enabled by default. The `.gitignore` file protects sensitive data like `.env` files, SSL keys, and backups from being committed.
 >
-> 🚀 **Deployment Flexible**: Works from any directory, supports custom container names, and can run multiple instances simultaneously. See [DEPLOYMENT-FLEXIBILITY.md](DEPLOYMENT-FLEXIBILITY.md) for details.
+> 🚀 **Deployment Flexible**: Works from any directory, supports custom container names, and can run multiple instances simultaneously. See [DEPLOYMENT-FLEXIBILITY.md](docs/DEPLOYMENT-FLEXIBILITY.md) for details.
 
 ## Features
 
@@ -41,7 +41,7 @@ This repository contains configuration and setup files for deploying GitLab Comm
 docker-compose -f docker-compose.sandbox.yml up -d
 # Access at http://localhost:8080
 ```
-📖 **Full Guide**: [QUICKSTART-SANDBOX.md](QUICKSTART-SANDBOX.md)
+📖 **Full Guide**: [QUICKSTART-SANDBOX.md](docs/QUICKSTART-SANDBOX.md)
 
 **🚀 Production** (Complete deployment guide)
 ```bash
@@ -58,7 +58,7 @@ docker-compose -f docker-compose.sandbox.yml up -d
 # Deploy
 docker-compose -f docker-compose.production.yml up -d
 ```
-📖 **Full Guides**: [QUICKSTART-PRODUCTION.md](QUICKSTART-PRODUCTION.md) | [AUTOMATION.md](AUTOMATION.md)
+📖 **Full Guides**: [QUICKSTART-PRODUCTION.md](docs/QUICKSTART-PRODUCTION.md) | [AUTOMATION.md](docs/AUTOMATION.md)
 
 ### Prerequisites
 
@@ -140,7 +140,7 @@ if [ $? -eq 0 ]; then
 fi
 ```
 
-📖 **Full Automation Guide**: [AUTOMATION.md](AUTOMATION.md) - CI/CD examples, GitHub Actions, GitLab CI, Jenkins, Ansible, Terraform
+📖 **Full Automation Guide**: [AUTOMATION.md](docs/AUTOMATION.md) - CI/CD examples, GitHub Actions, GitLab CI, Jenkins, Ansible, Terraform
 
 ### Method 3: Manual Configuration
 
@@ -222,11 +222,12 @@ gitlab-server/
 ├── backups/                        # Backup files (not in Git)
 ├── logs/                           # Script logs (not in Git)
 │
-├── QUICKSTART-SANDBOX.md           # 5-minute sandbox setup guide
-├── QUICKSTART-PRODUCTION.md        # Complete production guide
-├── DEPLOYMENT.md                   # Advanced deployment topics
-├── SECURITY.md                     # Security best practices
-├── ARCHITECTURE.md                 # System architecture
+├── docs/                           # Documentation files
+│   ├── QUICKSTART-SANDBOX.md       # 5-minute sandbox setup guide
+│   ├── QUICKSTART-PRODUCTION.md    # Complete production guide
+│   ├── DEPLOYMENT.md               # Advanced deployment topics
+│   ├── SECURITY.md                 # Security best practices
+│   └── ARCHITECTURE.md             # System architecture
 └── README.md                       # This file
 ```
 
@@ -362,14 +363,14 @@ docker exec -it gitlab-production gitlab-rake "gitlab:password:reset[root]"
 
 ### More Help
 
-- Check deployment-specific guides: [QUICKSTART-SANDBOX.md](QUICKSTART-SANDBOX.md) or [QUICKSTART-PRODUCTION.md](QUICKSTART-PRODUCTION.md)
+- Check deployment-specific guides: [QUICKSTART-SANDBOX.md](docs/QUICKSTART-SANDBOX.md) or [QUICKSTART-PRODUCTION.md](docs/QUICKSTART-PRODUCTION.md)
 - Review logs: `docker-compose -f <profile> logs -f`
 - Run validation: `./validate-deployment.py`
-- See [DEPLOYMENT.md](DEPLOYMENT.md) for advanced topics
+- See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for advanced topics
 
 ## Security Best Practices
 
-**CRITICAL**: Read [SECURITY.md](SECURITY.md) before production deployment!
+**CRITICAL**: Read [SECURITY.md](docs/SECURITY.md) before production deployment!
 
 Quick security checklist:
 
@@ -388,12 +389,12 @@ Quick security checklist:
 - ✅ Test disaster recovery procedures
 - ✅ Set up monitoring and alerting
 - ✅ Keep GitLab updated with security patches
-4. **Backups**: Set up automated backups with offsite storage (see [SECURITY.md](SECURITY.md))
+4. **Backups**: Set up automated backups with offsite storage (see [SECURITY.md](docs/SECURITY.md))
 5. **Monitoring**: Enable Prometheus metrics for production deployments
 6. **Firewall**: Configure firewall to allow only necessary ports (80, 443, 22)
 7. **Updates**: Regularly update GitLab to the latest version
 
-See [SECURITY.md](SECURITY.md) for detailed security hardening procedures, backup testing, and incident response guidelines.
+See [SECURITY.md](docs/SECURITY.md) for detailed security hardening procedures, backup testing, and incident response guidelines.
 
 ## Customization
 
@@ -401,7 +402,7 @@ To customize GitLab configuration, edit the `.env` file and restart GitLab:
 
 ### Advanced Configuration
 
-For advanced customization, see [DEPLOYMENT.md](DEPLOYMENT.md) for topics including:
+For advanced customization, see [DEPLOYMENT.md](docs/DEPLOYMENT.md) for topics including:
 - Custom GitLab configuration (gitlab.rb)
 - LDAP/OAuth integration
 - Container registry setup
@@ -412,16 +413,16 @@ For advanced customization, see [DEPLOYMENT.md](DEPLOYMENT.md) for topics includ
 ## Documentation
 
 ### Quick Start Guides
-- **[QUICKSTART-SANDBOX.md](QUICKSTART-SANDBOX.md)** - Get started with local testing in 5 minutes
-- **[QUICKSTART-PRODUCTION.md](QUICKSTART-PRODUCTION.md)** - Complete production deployment guide
-- **[AUTOMATION.md](AUTOMATION.md)** - CI/CD integration, non-interactive mode, automation examples
+- **[QUICKSTART-SANDBOX.md](docs/QUICKSTART-SANDBOX.md)** - Get started with local testing in 5 minutes
+- **[QUICKSTART-PRODUCTION.md](docs/QUICKSTART-PRODUCTION.md)** - Complete production deployment guide
+- **[AUTOMATION.md](docs/AUTOMATION.md)** - CI/CD integration, non-interactive mode, automation examples
 
 ### Comprehensive Guides
-- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Advanced deployment topics and configurations
-- **[DEPLOYMENT-FLEXIBILITY.md](DEPLOYMENT-FLEXIBILITY.md)** - Installation location and container name flexibility
-- **[SECURITY.md](SECURITY.md)** - Security best practices and hardening checklist
-- **[SECURITY-AUDIT.md](SECURITY-AUDIT.md)** - Security audit report and SAST findings
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture and design decisions
+- **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** - Advanced deployment topics and configurations
+- **[DEPLOYMENT-FLEXIBILITY.md](docs/DEPLOYMENT-FLEXIBILITY.md)** - Installation location and container name flexibility
+- **[SECURITY.md](docs/SECURITY.md)** - Security best practices and hardening checklist
+- **[SECURITY-AUDIT.md](docs/SECURITY-AUDIT.md)** - Security audit report and SAST findings
+- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - System architecture and design decisions
 
 ### Scripts
 
@@ -433,7 +434,7 @@ For advanced customization, see [DEPLOYMENT.md](DEPLOYMENT.md) for topics includ
 - **[scripts/restore.sh](scripts/restore.sh)** - Restore from backup
 - **[scripts/update.sh](scripts/update.sh)** - Safe update procedure
 
-💡 **Tip**: Python scripts support both interactive and non-interactive modes. See [AUTOMATION.md](AUTOMATION.md) for details.
+💡 **Tip**: Python scripts support both interactive and non-interactive modes. See [AUTOMATION.md](docs/AUTOMATION.md) for details.
 
 ## Support and Contributing
 
@@ -483,4 +484,4 @@ This template was created to simplify GitLab CE deployment while maintaining sec
 
 **Ready to get started?**
 - **Quick testing**: Run `./setup-wizard.py` and select Sandbox
-- **Production deployment**: Read [QUICKSTART-PRODUCTION.md](QUICKSTART-PRODUCTION.md) first
+- **Production deployment**: Read [QUICKSTART-PRODUCTION.md](docs/QUICKSTART-PRODUCTION.md) first

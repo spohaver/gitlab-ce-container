@@ -158,7 +158,7 @@ This is a **template repository** designed to be forked and customized. When wor
 
 **Before making changes to production configurations:**
 
-1. Review [SECURITY.md](SECURITY.md) for comprehensive security guidance
+1. Review [SECURITY.md](docs/SECURITY.md) for comprehensive security guidance
 2. Ensure `.gitignore` security entries are uncommented in production forks
 3. Never commit `.env` files, SSL private keys, or backup files
 4. Use Prometheus monitoring in production (already enabled in `gitlab.rb.template`)

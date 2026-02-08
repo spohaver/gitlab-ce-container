@@ -409,7 +409,7 @@ class SetupWizard:
             print("3. Access GitLab:")
             print(f"   {Colors.GREEN}http://localhost:8080{Colors.NC}")
             print()
-            print_info("See QUICKSTART-SANDBOX.md for detailed instructions")
+            print_info("See docs/QUICKSTART-SANDBOX.md for detailed instructions")
         
         elif self.config['deployment_type'] == 'staging':
             print()
@@ -432,12 +432,12 @@ class SetupWizard:
             print("1. ✓ Verify SSL certificates")
             print("2. ✓ Configure firewall")
             print("3. ✓ Install fail2ban")
-            print("4. ✓ Review SECURITY.md checklist")
+            print("4. ✓ Review docs/SECURITY.md checklist")
             print()
             print("Then start GitLab:")
             print(f"   {Colors.GREEN}docker-compose -f docker-compose.production.yml up -d{Colors.NC}")
             print()
-            print_info("See QUICKSTART-PRODUCTION.md for complete checklist")
+            print_info("See docs/QUICKSTART-PRODUCTION.md for complete checklist")
         
         print()
         print_success("Setup wizard completed successfully!")
