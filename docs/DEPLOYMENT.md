@@ -6,8 +6,180 @@ This document covers advanced deployment topics, custom configurations, and ente
 > - New users: [QUICKSTART-SANDBOX.md](QUICKSTART-SANDBOX.md) - Get started in 5 minutes
 > - Production: [QUICKSTART-PRODUCTION.md](QUICKSTART-PRODUCTION.md) - Complete production guide
 > - Automation: [AUTOMATION.md](AUTOMATION.md) - CI/CD integration and scripting
-> 
+>
 > This guide is for advanced customizations beyond standard deployment.
+
+## Table of Contents
+
+- [Deployment Flexibility](#deployment-flexibility)
+- [Advanced Topics](#advanced-topics)
+- [Custom GitLab Configuration](#custom-gitlab-configuration)
+- [High Availability](#high-availability-configuration)
+- [Performance Tuning](#performance-tuning)
+- [Custom Runners](#custom-runners)
+
+## Deployment Flexibility
+
+This template supports flexible deployment locations and configurations.
+
+### Installation Location Flexibility
+
+This template works from **any directory**. Common locations:
+
+```bash
+# System-wide installations
+/opt/gitlab-server
+/srv/gitlab
+/usr/local/gitlab-server
+
+# User installations
+~/gitlab-server
+/home/username/projects/gitlab-server
+
+# Development locations
+~/workspace/gitlab-server
+~/dev/gitlab-server
+```
+
+All scripts use **relative paths** based on script location, so there are no hard-coded absolute paths to worry about.
+
+### Container Name Flexibility
+
+Scripts automatically detect the GitLab container name:
+
+1. **Environment Variable** (highest priority):
+   ```bash
+   export GITLAB_CONTAINER_NAME=my-custom-gitlab
+   ./scripts/backup.sh
+   ```
+
+2. **Running Container Detection**:
+   - Searches for running `gitlab/gitlab-ce` containers
+   - Checks common names: `gitlab-production`, `gitlab-staging`, `gitlab-sandbox`, `gitlab-local`, `gitlab`
+
+3. **Default Fallback**: `gitlab`
+
+#### Profile-Specific Container Names
+
+Each deployment profile uses a unique container name by default:
+
+| Profile | Default Container Name | Override Variable |
+|---------|----------------------|-------------------|
+| Sandbox | `gitlab-sandbox` | `GITLAB_CONTAINER_NAME` |
+| Staging | `gitlab-staging` | `GITLAB_CONTAINER_NAME` |
+| Production | `gitlab-production` | `GITLAB_CONTAINER_NAME` |
+
+This allows running multiple GitLab instances on the same server.
+
+#### Setting Custom Container Name
+
+**Option 1: Environment Variable (Recommended)**
+```bash
+# Set once in your shell profile
+echo 'export GITLAB_CONTAINER_NAME=gitlab-production' >> ~/.bashrc
+source ~/.bashrc
+
+# Or per-command
+GITLAB_CONTAINER_NAME=gitlab-production ./scripts/backup.sh
+```
+
+**Option 2: Docker Compose Override**
+```yaml
+# docker-compose.override.yml
+version: '3.6'
+services:
+  gitlab:
+    container_name: my-company-gitlab
+```
+
+**Option 3: Modify Profile**
+```yaml
+# Edit docker-compose.production.yml
+services:
+  gitlab:
+    container_name: my-custom-name
+```
+
+### Multi-Instance Setup
+
+You can run multiple GitLab profiles simultaneously:
+
+```bash
+# Start sandbox for testing
+docker-compose -f docker-compose.sandbox.yml up -d
+# Container: gitlab-sandbox on ports 8080/8443/2224
+
+# Start production on same server
+docker-compose -f docker-compose.production.yml up -d
+# Container: gitlab-production on ports 80/443/2222
+
+# Backup specific instance
+GITLAB_CONTAINER_NAME=gitlab-sandbox ./scripts/backup.sh
+GITLAB_CONTAINER_NAME=gitlab-production ./scripts/backup.sh
+```
+
+Profiles use different ports to avoid conflicts:
+
+```
+Sandbox:    HTTP=8080, HTTPS=8443, SSH=2224
+Staging:    HTTP=80,   HTTPS=443,  SSH=2222
+Production: HTTP=80,   HTTPS=443,  SSH=2222
+```
+
+### Docker Volume Flexibility
+
+**Named Volumes (Production/Staging)**
+
+Data stored in Docker volumes (portable across hosts):
+
+```yaml
+volumes:
+  gitlab-data:
+    driver: local
+```
+
+**Local Directories (Sandbox)**
+
+Data stored in `./gitlab-local/` for easy inspection:
+
+```bash
+gitlab-local/
+├── data/       # GitLab data
+├── config/     # Configuration
+├── logs/       # Log files
+└── ssl/        # Certificates
+```
+
+### Common Customizations
+
+**Custom Ports**
+
+```yaml
+# docker-compose.override.yml
+services:
+  gitlab:
+    ports:
+      - '8888:80'
+      - '8889:443'
+      - '2223:22'
+```
+
+**Custom Domain**
+
+```bash
+# .env
+GITLAB_DOMAIN=git.mycompany.com
+```
+
+**Custom Data Location**
+
+```yaml
+# docker-compose.override.yml
+services:
+  gitlab:
+    volumes:
+      - /mnt/storage/gitlab-data:/var/opt/gitlab
+```
 
 ## Advanced Topics
 

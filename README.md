@@ -9,7 +9,7 @@ This repository contains configuration and setup files for deploying GitLab Comm
 >
 > ⚠️ **Security Notice**: This repository has security controls enabled by default. The `.gitignore` file protects sensitive data like `.env` files, SSL keys, and backups from being committed.
 >
-> 🚀 **Deployment Flexible**: Works from any directory, supports custom container names, and can run multiple instances simultaneously. See [DEPLOYMENT-FLEXIBILITY.md](docs/DEPLOYMENT-FLEXIBILITY.md) for details.
+> 🚀 **Deployment Flexible**: Works from any directory, supports custom container names, and can run multiple instances simultaneously. See [DEPLOYMENT.md](docs/DEPLOYMENT.md#deployment-flexibility) for details.
 
 ## Features
 
@@ -418,11 +418,10 @@ For advanced customization, see [DEPLOYMENT.md](docs/DEPLOYMENT.md) for topics i
 - **[AUTOMATION.md](docs/AUTOMATION.md)** - CI/CD integration, non-interactive mode, automation examples
 
 ### Comprehensive Guides
-- **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** - Advanced deployment topics and configurations
-- **[DEPLOYMENT-FLEXIBILITY.md](docs/DEPLOYMENT-FLEXIBILITY.md)** - Installation location and container name flexibility
+- **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** - Advanced deployment topics, configurations, and deployment flexibility
 - **[SECURITY.md](docs/SECURITY.md)** - Security best practices and hardening checklist
-- **[SECURITY-AUDIT.md](docs/SECURITY-AUDIT.md)** - Security audit report and SAST findings
 - **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - System architecture and design decisions
+- **[SECURITY-AUDIT.md](docs/audits/SECURITY-AUDIT.md)** - Security audit report and SAST findings
 
 ### Scripts
 
