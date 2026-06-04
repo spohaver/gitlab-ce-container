@@ -32,7 +32,7 @@ services:
   gitlab:
     # CRITICAL: Pin to specific tested version - never use :latest in production
     # Test version upgrades in staging first
-    image: 'gitlab/gitlab-ce:18.8.2-ce.0'
+    image: 'gitlab/gitlab-ce:18.11.4-ce.0'
     container_name: gitlab-production
     restart: unless-stopped
     hostname: '${GITLAB_DOMAIN}'
